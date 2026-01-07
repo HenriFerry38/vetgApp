@@ -7,6 +7,7 @@ use App\Repository\CommandeRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: CommandeRepository::class)]
 class Commande
 {
@@ -18,8 +19,16 @@ class Commande
     #[ORM\Column(length: 50)]
     private ?string $numero_commande = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $date_commande = null;
+    #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
+    private ?\DateTimeImmutable $date_commande;
+
+    #[ORM\PrePersist]
+    public function setDateCommandeValue():void
+    {
+        if (!isset($this->date_commande)){
+            $this->date_commande = new \DateTimeImmutable();
+        }
+    }
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $date_prestation = null;
@@ -62,36 +71,36 @@ class Commande
         return $this;
     }
 
-    public function getDateCommande(): ?\DateTime
+    public function getDateCommande(): ?\DateTimeImmutable
     {
         return $this->date_commande;
     }
 
-    public function setDateCommande(\DateTime $date_commande): static
+    public function setDateCommande(\DateTimeImmutable $date_commande): static
     {
         $this->date_commande = $date_commande;
 
         return $this;
     }
 
-    public function getDatePrestation(): ?\DateTime
+    public function getDatePrestation(): ?\DateTimeInterface
     {
         return $this->date_prestation;
     }
 
-    public function setDatePrestation(\DateTime $date_prestation): static
+    public function setDatePrestation(\DateTimeInterface $date_prestation): static
     {
         $this->date_prestation = $date_prestation;
 
         return $this;
     }
 
-    public function getHeurePrestation(): ?string
+    public function getHeurePrestation(): ?\DateTimeInterface
     {
         return $this->heure_prestation;
     }
 
-    public function setHeurePrestation(string $heure_prestation): static
+    public function setHeurePrestation(?\DateTimeInterface $heure_prestation): static
     {
         $this->heure_prestation = $heure_prestation;
 
