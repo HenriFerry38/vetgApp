@@ -1,0 +1,172 @@
+<?php
+
+namespace App\Entity;
+
+use App\Enum\StatutCommande;
+use App\Repository\CommandeRepository;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity(repositoryClass: CommandeRepository::class)]
+class Commande
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 50)]
+    private ?string $numero_commande = null;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE)]
+    private ?\DateTimeInterface $date_commande = null;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE)]
+    private ?\DateTimeInterface $date_prestation = null;
+
+   #[ORM\Column(type: Types::TIME_MUTABLE)]
+    private ?\DateTimeInterface $heure_prestation = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
+    private ?string $prix_menu = null;
+
+    #[ORM\Column]
+    private ?int $nb_personne = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
+    private ?string $prix_livraison = null;
+
+    #[ORM\Column(enumType: StatutCommande::class)]
+    private StatutCommande $statut = StatutCommande::EN_ATTENTE;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $pret_materiel = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $restitution_materiel = null;
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getNumeroCommande(): ?string
+    {
+        return $this->numero_commande;
+    }
+
+    public function setNumeroCommande(string $numero_commande): static
+    {
+        $this->numero_commande = $numero_commande;
+
+        return $this;
+    }
+
+    public function getDateCommande(): ?\DateTime
+    {
+        return $this->date_commande;
+    }
+
+    public function setDateCommande(\DateTime $date_commande): static
+    {
+        $this->date_commande = $date_commande;
+
+        return $this;
+    }
+
+    public function getDatePrestation(): ?\DateTime
+    {
+        return $this->date_prestation;
+    }
+
+    public function setDatePrestation(\DateTime $date_prestation): static
+    {
+        $this->date_prestation = $date_prestation;
+
+        return $this;
+    }
+
+    public function getHeurePrestation(): ?string
+    {
+        return $this->heure_prestation;
+    }
+
+    public function setHeurePrestation(string $heure_prestation): static
+    {
+        $this->heure_prestation = $heure_prestation;
+
+        return $this;
+    }
+
+    public function getPrixMenu(): ?string
+    {
+        return $this->prix_menu;
+    }
+
+    public function setPrixMenu(string $prix_menu): static
+    {
+        $this->prix_menu = $prix_menu;
+
+        return $this;
+    }
+
+    public function getNbPersonne(): ?int
+    {
+        return $this->nb_personne;
+    }
+
+    public function setNbPersonne(int $nb_personne): static
+    {
+        $this->nb_personne = $nb_personne;
+
+        return $this;
+    }
+
+    public function getPrixLivraison(): ?string
+    {
+        return $this->prix_livraison;
+    }
+
+    public function setPrixLivraison(string $prix_livraison): static
+    {
+        $this->prix_livraison = $prix_livraison;
+
+        return $this;
+    }
+
+    public function getStatut(): StatutCommande
+    {
+        return $this->statut;
+    }
+
+    public function setStatut(StatutCommande $statut): static
+    {
+        $this->statut = $statut;
+
+        return $this;
+    }
+
+    public function isPretMateriel(): ?bool
+    {
+        return $this->pret_materiel;
+    }
+
+    public function setPretMateriel(?bool $pret_materiel): static
+    {
+        $this->pret_materiel = $pret_materiel;
+
+        return $this;
+    }
+
+    public function isRestitutionMateriel(): ?bool
+    {
+        return $this->restitution_materiel;
+    }
+
+    public function setRestitutionMateriel(?bool $restitution_materiel): static
+    {
+        $this->restitution_materiel = $restitution_materiel;
+
+        return $this;
+    }
+}
