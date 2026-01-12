@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\User;
 use App\Enum\StatutCommande;
 use App\Repository\CommandeRepository;
 use Doctrine\DBAL\Types\Types;
@@ -53,6 +54,11 @@ class Commande
 
     #[ORM\Column(nullable: true)]
     private ?bool $restitution_materiel = null;
+
+    #[ORM\ManyToOne(inversedBy: 'commandes')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+    private ?User $user = null;
+
 
     public function getId(): ?int
     {
@@ -176,6 +182,17 @@ class Commande
     {
         $this->restitution_materiel = $restitution_materiel;
 
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
         return $this;
     }
 }

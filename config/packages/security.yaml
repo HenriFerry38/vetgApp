@@ -24,6 +24,7 @@ security:
                 check_path: /api/login
             custom_authenticators:
                - App\Security\ApiTokenAuthenticator
+            user_checker: App\Security\UserChecker
             # Activate different ways to authenticate:
             # https://symfony.com/doc/current/security.html#the-firewall
 
@@ -34,9 +35,15 @@ security:
     access_control:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
+        
         - { path: ^/api/registration, roles: PUBLIC_ACCESS }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+        
+        - { path: ^/api/commande/\d+/statut$, roles: ROLE_EMPLOYEE }
+        - { path: ^/api/avis/\d+/accepter$, roles: ROLE_EMPLOYEE }
+        - { path: ^/api/avis/\d+/refuser$, roles: ROLE_EMPLOYEE }
+        
         - { path: ^/api, roles: ROLE_USER}
 when@test:
     security:

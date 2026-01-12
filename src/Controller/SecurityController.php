@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Repository\RoleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,8 +23,9 @@ final class SecurityController extends AbstractController
 {
     public function __construct(
         private SerializerInterface $serializer,
-        private EntityManagerInterface $em,
-        private UserRepository $repository
+        private EntityManagerInterface $manager,
+        private UserRepository $repository,
+        private RoleRepository $roleRepository
         )
     {
     }
@@ -37,10 +39,15 @@ final class SecurityController extends AbstractController
             content: new OA\JsonContent(
                 required: ['email', 'password'],
                 properties: [
-                    new OA\Property(property: 'firstName', type: 'string', example: 'Toto'),
-                    new OA\Property(property: 'lastName', type: 'string', example: 'Toto'),
+                    new OA\Property(property: 'prenom', type: 'string', example: 'Toto'),
+                    new OA\Property(property: 'nom', type: 'string', example: 'Toto'),
                     new OA\Property(property: 'email', type: 'string', example: 'adresse@email.com'),
                     new OA\Property(property: 'password', type: 'string', example: 'Mot de passe'),
+                    new OA\Property(property: 'telephone', type: 'string', example: '0612345678'),
+                    new OA\Property(property: 'adresse', type: 'string', example: '1 rue de l adresse'),
+                    new OA\Property(property: 'code_postal', type: 'string', example: '12345'),
+                    new OA\Property(property: 'ville', type: 'string', example: 'Ville-city'),
+                    new OA\Property(property: 'pays', type: 'string', example: 'France'),
                 ]
             )
         ),
@@ -64,8 +71,14 @@ final class SecurityController extends AbstractController
         $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
         $user->setCreatedAt(new \DateTimeImmutable());
 
-        $this->em->persist($user);
-        $this->em->flush();
+        $roleUser = $this->roleRepository->findOneBy(['code' => 'ROLE_USER']);
+        if (!$roleUser) {
+            return new JsonResponse(['message' => 'ROLE_USER introuvable en base (table role)'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        $user->addRoleEntity($roleUser);
+        
+        $this->manager->persist($user);
+        $this->manager->flush();
 
         return new JsonResponse(
             ['user' => $user->getUserIdentifier(), 'apiToken' => $user->getApiToken(), 'roles' => $user->getRoles()],
@@ -202,14 +215,15 @@ final class SecurityController extends AbstractController
             content: new OA\JsonContent(
                 type: 'object',
                 properties: [
-                    new OA\Property(property: 'email', type: 'string', example: 'nouvelle@email.com'),
-                    new OA\Property(property: 'password', type: 'string', example: 'NouveauMotDePasse'),
-                    new OA\Property(
-                        property: 'roles',
-                        type: 'array',
-                        items: new OA\Items(type: 'string', example: 'ROLE_USER'),
-                        description: "À inclure seulement si ton API autorise l'utilisateur à modifier ses rôles"
-                    ),
+                    new OA\Property(property: 'prenom', type: 'string', example: 'NouveauPrénom'),
+                    new OA\Property(property: 'nom', type: 'string', example: 'NouveauNom'),
+                    new OA\Property(property: 'email', type: 'string', example: 'Nouvelleadresse@email.com'),
+                    new OA\Property(property: 'password', type: 'string', example: 'NouveauMotdepasse'),
+                    new OA\Property(property: 'telephone', type: 'string', example: '0612345678'),
+                    new OA\Property(property: 'adresse', type: 'string', example: '1 rue de l adresse'),
+                    new OA\Property(property: 'code_postal', type: 'string', example: '12345'),
+                    new OA\Property(property: 'ville', type: 'string', example: 'Nouvelle Ville'),
+                    new OA\Property(property: 'pays', type: 'string', example: 'Nouveau Pays'),
                 ]
             )
         ),
@@ -255,13 +269,13 @@ final class SecurityController extends AbstractController
 
         //Si un mot de pass est présent on le re-hash
         $data = json_decode($request->getContent(), true);
-        if (!empty($data['password'])) {
+        if (!Empty($data['password'])) {
 
             $user->setPassword($passwordHasher->hashPassword($user, $data['password']));
         }
 
         $user->setUpdatedAt(new \DateTimeImmutable());
-        $this->em->flush();
+        $this->manager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

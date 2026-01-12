@@ -27,7 +27,56 @@ class AllergeneController extends AbstractController
     {
 
     }
-    #[Route( name: 'new', methods: ['POST'])]
+    #[Route(name: 'new', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/allergene',
+        summary: "Créer un nouvel allergène",
+        description: "Crée un allergène et retourne la ressource créée",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['libelle'],
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Gluten'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Allergène créé avec succès',
+                headers: [
+                    new OA\Header(
+                        header: 'Location',
+                        description: 'URL de la ressource créée',
+                        schema: new OA\Schema(type: 'string', example: 'http://localhost/api/allergene/1')
+                    )
+                ],
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Gluten'),
+                        new OA\Property(
+                            property: 'createdAt',
+                            type: 'string',
+                            format: 'date-time',
+                            example: '2026-01-12T10:30:00+01:00'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 400,
+                description: 'Requête invalide (JSON incorrect ou champ manquant)'
+            )
+        ]
+    )]
+
     public function new(Request $request): JsonResponse
     {   
         $allergene = $this->serializer->deserialize($request->getContent(), Allergene::class, 'json');
@@ -48,6 +97,51 @@ class AllergeneController extends AbstractController
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/allergene/{id}',
+        summary: "Récupérer un allergène par ID",
+        description: "Retourne un allergène si l'ID existe",
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant de l'allergène",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Allergène trouvé",
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Gluten'),
+                        new OA\Property(
+                            property: 'createdAt',
+                            type: 'string',
+                            format: 'date-time',
+                            example: '2026-01-12T10:30:00+01:00'
+                        ),
+                        new OA\Property(
+                            property: 'updatedAt',
+                            type: 'string',
+                            format: 'date-time',
+                            nullable: true,
+                            example: '2026-01-13T14:10:00+01:00'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Allergène introuvable"
+            )
+        ]
+    )]
+
     public function show(int $id): JsonResponse
     {
         $allergene = $this->repository->findOneBy(['id' => $id]);
@@ -61,6 +155,48 @@ class AllergeneController extends AbstractController
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/allergene/{id}',
+        summary: "Mettre à jour un allergène par ID",
+        description: "Met à jour les informations d’un allergène existant",
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant de l'allergène",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            description: "Données à mettre à jour",
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Arachides'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Allergène mis à jour avec succès (aucun contenu retourné)"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Allergène introuvable"
+            ),
+            new OA\Response(
+                response: 400,
+                description: "Requête invalide (JSON incorrect)"
+            )
+        ]
+    )]
+
     public function edit(int $id, Request $request): JsonResponse
     {
         $allergene = $this->repository->findOneBy(['id' => $id]);
@@ -82,6 +218,30 @@ class AllergeneController extends AbstractController
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/allergene/{id}',
+        summary: "Supprimer un allergène par ID",
+        description: "Supprime définitivement un allergène existant",
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant de l'allergène",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Allergène supprimé avec succès (aucun contenu retourné)"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Allergène introuvable"
+            )
+        ]
+    )]
     public function delete(int $id): JsonResponse
     {
         $allergene = $this->repository->findOneBy(['id' => $id]);

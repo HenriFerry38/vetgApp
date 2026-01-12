@@ -6,6 +6,8 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
@@ -18,13 +20,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(length: 180)]
     private ?string $email = null;
-
-    /**
-     * @var list<string> The user roles
-     */
-    #[ORM\Column]
-    private array $roles = [];
-
     /**
      * @var string The hashed password
      */
@@ -61,10 +56,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $codePostal = null;
 
+    #[ORM\ManyToMany(targetEntity: Role::class)]
+    #[ORM\JoinTable(name: 'user_role')]
+    private Collection $roleEntities;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $isActive = true;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Commande::class)]
+    private Collection $commandes;
+
     /** @throws \Exception */
     public function __construct()
     {
         $this->apiToken = bin2hex(random_bytes( 20));
+        $this->roleEntities = new ArrayCollection();
+        $this->commandes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -94,26 +101,34 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return (string) $this->email;
     }
 
-    /**
-     * @see UserInterface
-     */
-    public function getRoles(): array
+    public function getRoleEntities(): Collection
     {
-        $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
-
-        return array_unique($roles);
+        return $this->roleEntities;
     }
 
-    /**
-     * @param list<string> $roles
-     */
-    public function setRoles(array $roles): static
+    public function addRoleEntity(Role $role): self
     {
-        $this->roles = $roles;
-
+        if (!$this->roleEntities->contains($role)) {
+            $this->roleEntities->add($role);
+        }
         return $this;
+    }
+
+    public function removeRoleEntity(Role $role): self
+    {
+        $this->roleEntities->removeElement($role);
+        return $this;
+    }
+    public function getRoles(): array
+    {
+        $roles = [];
+
+        foreach ($this->roleEntities as $role) {
+            $roles[] = $role->getCode();
+        }
+
+        $roles[] = 'ROLE_USER';
+        return array_values(array_unique($roles));
     }
 
     /**
@@ -265,6 +280,39 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->codePostal = $codePostal;
 
+        return $this;
+    }
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): static
+    {
+        $this->isActive = $isActive;
+        return $this;
+    }
+    public function getCommandes(): Collection
+    {
+        return $this->commandes;
+    }
+
+    public function addCommande(Commande $commande): static
+    {
+        if (!$this->commandes->contains($commande)) {
+            $this->commandes->add($commande);
+            $commande->setUser($this);
+        }
+        return $this;
+    }
+
+    public function removeCommande(Commande $commande): static
+    {
+        if ($this->commandes->removeElement($commande)) {
+            if ($commande->getUser() === $this) {
+                $commande->setUser(null);
+            }
+        }
         return $this;
     }
 }
