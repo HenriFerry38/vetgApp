@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\DBAL\Types\Types;
+use Symfony\Component\Serializer\Annotation\Ignore;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: ThemeRepository::class)]
@@ -21,10 +22,10 @@ class Theme
     private ?string $libelle = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
-    private ?\DateTimeImmutable $createdAt;
+    private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\PrePersist]
-    public function setCreatedAtValue():void
+    public function onPrePersist():void
     {
         if (!isset($this->createdAt)){
             $this->createdAt = new \DateTimeImmutable();
@@ -33,8 +34,8 @@ class Theme
     #[ORM\Column(nullable: true,type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\PrePersist]
-    public function setUpdatedAtValue():void
+    #[ORM\PreUpdate]
+    public function onPreUpdate():void
     {
         if (!isset($this->updatedAt)){
             $this->updatedAt = new \DateTimeImmutable();
@@ -44,6 +45,7 @@ class Theme
     /**
      * @var Collection<int, Menu>
      */
+    #[Ignore]
     #[ORM\OneToMany(targetEntity: Menu::class, mappedBy: 'theme')]
     private Collection $menus;
 

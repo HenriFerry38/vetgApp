@@ -21,73 +21,78 @@ class HoraireController extends AbstractController
     public function __construct(
         private EntityManagerInterface $manager,
         private HoraireRepository $repository,
-        /* private SerializerInterface $serializer,
-        private UrlGeneratorInterface $urlGenerator,*/
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator
         )
     {
 
     }
     #[Route( name: 'new', methods: ['POST'])]
-    public function new(): Response
+    public function new(Request $request): JsonResponse
     {   
-        $horaire = new Horaire();
-        $horaire->setJour('Lundi');
-        $horaire->setHeureOuverture('10h00');
-        $horaire->setHeureFermeture('22h00');
+        $horaire = $this->serializer->deserialize($request->getContent(), Horaire::class, 'json');
         $horaire->setCreatedAt(new DateTimeImmutable());
        
         $this->manager->persist($horaire);
-        
         $this->manager->flush();
-        return $this->json(
-            ['message' => "horaire resource created with {$horaire->getId()} id"],
-            Response::HTTP_CREATED,
+
+        $responseData = $this->serializer->serialize($horaire, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_horaire_show',
+            ['id' => $horaire->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
-    
+
+        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     } 
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $horaire = $this->repository->findOneBy(['id' => $id]);
+        if ($horaire) {
+            $responseData = $this->serializer->serialize($horaire, 'json');
 
-        if (!$horaire) {
-            throw $this->createNotFoundException("No horaire found for {$id} id");
+            return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
-        return $this->json(
-            ['message' => "A horaire was found : {$horaire->getJour()} for {$horaire->getId()} id"]
-        );
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $horaire = $this->repository->findOneBy(['id' => $id]);
+        if ($horaire) {
+            $horaire = $this->serializer->deserialize(
+                $request->getContent(),
+                Horaire::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $horaire]
+            );
+            $horaire->setUpdatedAt(new DateTimeImmutable());
+            $this->manager->flush();
 
-        if (!$horaire) {
-            throw $this->createNotFoundException("No horaire found for {$id} id");
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
 
-        $horaire->setJour('Jour updated');
-        $horaire->setUpdatedAt(new DateTimeImmutable());
-        $this->manager->flush();
-
-        return $this->redirectToRoute('app_api_horaire_show', ['id' => $horaire->getId()]);
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $horaire = $this->repository->findOneBy(['id' => $id]);
-        if (!$horaire) {
-            throw $this->createNotFoundException("No horaire found for {$id} id");
+        if ($horaire) {
+            $this->manager->remove($horaire);
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
-        $this->manager->remove($horaire);
-        $this->manager->flush();
-        return $this->json(['message' => "horaire resource deleted"], Response::HTTP_NO_CONTENT);
+        
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 }
 

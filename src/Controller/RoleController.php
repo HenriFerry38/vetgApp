@@ -21,71 +21,78 @@ class RoleController extends AbstractController
     public function __construct(
         private EntityManagerInterface $manager,
         private RoleRepository $repository,
-        /* private SerializerInterface $serializer,
-        private UrlGeneratorInterface $urlGenerator,*/
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator
         )
     {
 
     }
     #[Route( name: 'new', methods: ['POST'])]
-    public function new(): Response
+    public function new(Request $request): JsonResponse
     {   
-        $role = new Role();
-        $role->setLibelle('ROLE_USER');
+        $role = $this->serializer->deserialize($request->getContent(), Role::class, 'json');
         $role->setCreatedAt(new DateTimeImmutable());
        
         $this->manager->persist($role);
-        
         $this->manager->flush();
-        return $this->json(
-            ['message' => "Role resource created with {$role->getId()} id"],
-            Response::HTTP_CREATED,
+
+        $responseData = $this->serializer->serialize($role, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_role_show',
+            ['id' => $role->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
-    
+
+        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     } 
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $role = $this->repository->findOneBy(['id' => $id]);
+        if ($role) {
+            $responseData = $this->serializer->serialize($role, 'json');
 
-        if (!$role) {
-            throw $this->createNotFoundException("No Role found for {$id} id");
+            return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
-        return $this->json(
-            ['message' => "A Role was found : {$role->getLibelle()} for {$role->getId()} id"]
-        );
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $role = $this->repository->findOneBy(['id' => $id]);
+        if ($role) {
+            $role = $this->serializer->deserialize(
+                $request->getContent(),
+                Role::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $role]
+            );
+            $role->setUpdatedAt(new DateTimeImmutable());
+            $this->manager->flush();
 
-        if (!$role) {
-            throw $this->createNotFoundException("No role found for {$id} id");
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
 
-        $role->setLibelle('role name updated');
-        $role->setUpdatedAt(new DateTimeImmutable());
-        $this->manager->flush();
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
 
-        return $this->redirectToRoute('app_api_role_show', ['id' => $role->getId()]);
     }
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $role = $this->repository->findOneBy(['id' => $id]);
-        if (!$role) {
-            throw $this->createNotFoundException("No role found for {$id} id");
+        if ($role) {
+            $this->manager->remove($role);
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
-        $this->manager->remove($role);
-        $this->manager->flush();
-        return $this->json(['message' => "Role resource deleted"], Response::HTTP_NO_CONTENT);
+        
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 }
-

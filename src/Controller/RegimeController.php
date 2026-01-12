@@ -21,71 +21,77 @@ class RegimeController extends AbstractController
     public function __construct(
         private EntityManagerInterface $manager,
         private RegimeRepository $repository,
-        /* private SerializerInterface $serializer,
-        private UrlGeneratorInterface $urlGenerator,*/
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator
         )
     {
 
     }
     #[Route( name: 'new', methods: ['POST'])]
-    public function new(): Response
+    public function new(Request $request): JsonResponse
     {   
-        $regime = new Regime();
-        $regime->setLibelle('Vegetarien');
+        $regime = $this->serializer->deserialize($request->getContent(), Regime::class, 'json');
         $regime->setCreatedAt(new DateTimeImmutable());
        
         $this->manager->persist($regime);
-        
         $this->manager->flush();
-        return $this->json(
-            ['message' => "Regime resource created with {$regime->getId()} id"],
-            Response::HTTP_CREATED,
+
+        $responseData = $this->serializer->serialize($regime, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_regime_show',
+            ['id' => $regime->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
-    
+
+        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     } 
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);
+        if ($regime) {
+            $responseData = $this->serializer->serialize($regime, 'json');
 
-        if (!$regime) {
-            throw $this->createNotFoundException("No regime found for {$id} id");
+            return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
-        return $this->json(
-            ['message' => "A Regime was found : {$regime->getLibelle()} for {$regime->getId()} id"]
-        );
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);
+        if ($regime) {
+            $regime = $this->serializer->deserialize(
+                $request->getContent(),
+                Regime::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $regime]
+            );
+            $regime->setUpdatedAt(new DateTimeImmutable());
+            $this->manager->flush();
 
-        if (!$regime) {
-            throw $this->createNotFoundException("No regime found for {$id} id");
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
 
-        $regime->setLibelle('Regime name updated');
-        $regime->setUpdatedAt(new DateTimeImmutable());
-        $this->manager->flush();
-
-        return $this->redirectToRoute('app_api_regime_show', ['id' => $regime->getId()]);
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);
-        if (!$regime) {
-            throw $this->createNotFoundException("No regime found for {$id} id");
+        if ($regime) {
+            $this->manager->remove($regime);
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
-        $this->manager->remove($regime);
-        $this->manager->flush();
-        return $this->json(['message' => "Regime resource deleted"], Response::HTTP_NO_CONTENT);
+        
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 }
-

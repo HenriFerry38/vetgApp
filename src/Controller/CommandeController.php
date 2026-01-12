@@ -21,74 +21,75 @@ class CommandeController extends AbstractController
     public function __construct(
         private EntityManagerInterface $manager,
         private CommandeRepository $repository,
-        /* private SerializerInterface $serializer,
-        private UrlGeneratorInterface $urlGenerator,*/
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator
         )
     {
 
     }
     #[Route( name: 'new', methods: ['POST'])]
-    public function new(): Response
+    public function new(Request $request): JsonResponse
     {   
-        $commande = new Commande();
-        $commande->setNumeroCommande(100);
-        $commande->setDateCommande(new DateTimeImmutable());
-        $commande->setDatePrestation(new \DateTimeImmutable('2026-01-15'));
-        $commande->setHeurePrestation(new \DateTimeImmutable('18:30'));
-        $commande->setPrixMenu(12.5);
-        $commande->setNbPersonne(2);
-        $commande->setPrixLivraison(5);
+        $commande = $this->serializer->deserialize($request->getContent(), Commande::class, 'json');
+       
         $this->manager->persist($commande);
-        
         $this->manager->flush();
-        return $this->json(
-            ['message' => "Commande resource created with {$commande->getId()} id"],
-            Response::HTTP_CREATED,
+
+        $responseData = $this->serializer->serialize($commande, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_commande_show',
+            ['id' => $commande->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
-    
+
+        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     } 
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $commande = $this->repository->findOneBy(['id' => $id]);
+        if ($commande) {
+            $responseData = $this->serializer->serialize($commande, 'json');
 
-        if (!$commande) {
-            throw $this->createNotFoundException("No Commande found for {$id} id");
+            return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
-        return $this->json(
-            ['message' => "A Commande was found : {$commande->getNumeroCommande()} for {$commande->getId()} id"]
-        );
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $commande = $this->repository->findOneBy(['id' => $id]);
+        if ($commande) {
+            $commande = $this->serializer->deserialize(
+                $request->getContent(),
+                Commande::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $commande]
+            );
+            $this->manager->flush();
 
-        if (!$commande) {
-            throw $this->createNotFoundException("No Commande found for {$id} id");
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
 
-        $commande->setNumeroCommande(1);
-        $this->manager->flush();
-
-        return $this->redirectToRoute('app_api_commande_show', ['id' => $commande->getId()]);
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $commande = $this->repository->findOneBy(['id' => $id]);
-        if (!$commande) {
-            throw $this->createNotFoundException("No Commande found for {$id} id");
+        if ($commande) {
+            $this->manager->remove($commande);
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
-        $this->manager->remove($commande);
-        $this->manager->flush();
-        return $this->json(['message' => "Commande resource deleted"], Response::HTTP_NO_CONTENT);
+        
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 }
-

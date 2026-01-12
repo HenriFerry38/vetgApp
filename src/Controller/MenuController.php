@@ -26,86 +26,132 @@ class MenuController extends AbstractController
         private MenuRepository $repository,
         private RegimeRepository $regimeRepository,
         private ThemeRepository $themeRepository,
-        /* private SerializerInterface $serializer,
-        private UrlGeneratorInterface $urlGenerator,*/
+         private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator
         )
     {
 
     }
     #[Route( name: 'new', methods: ['POST'])]
-    public function new(): Response
+    public function new(Request $request): JsonResponse
     {   
-        $regime = $this->regimeRepository->findOneBy(['libelle' => 'Vegetarien']);
-        $theme  = $this->themeRepository->findOneBy(['libelle' => 'Festifs']);
-        $menu = new Menu();
-        $menu->setTitre('Quai Antique');
-        $menu->setNbPersonneMini(2);
-        $menu->setPrixParPersonne('15.50');
-        $menu->setDescription('Cette qualité et ce goût par le chef Arnaud MICHANT.');
-        $menu->setQuantiteRestaurant(10);
-        $menu->setRegime($regime); 
-        $menu->setTheme($theme);   
+        $data = json_decode($request->getContent(), true);
+
+        if (!is_array($data)) {
+            return new JsonResponse(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $menu = $this->serializer->deserialize($request->getContent(), Menu::class, 'json');
         $menu->setCreatedAt(new DateTimeImmutable());
+        
+        $regimeId = $data['regimeId'] ?? null;
+        $themeId  = $data['themeId'] ?? null;
+        
+        if (!$regimeId || !$themeId) {
+            return new JsonResponse(['error' => 'regimeId et themeId sont obligatoires'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $regime = $this->regimeRepository->find($regimeId);
+        $theme  = $this->themeRepository->find($themeId);
 
         if (!$regime || !$theme) {
-        return $this->json(
-        ['error' => 'Regime ou Theme introuvable'],
-        Response::HTTP_BAD_REQUEST
+            return new JsonResponse(['error' => 'Regime ou Theme introuvable'], Response::HTTP_BAD_REQUEST);
+        }
         
-        );}
-
-        // Tell Doctrine you want to (eventually) save the restaurant (no queries yet)
+        $menu->setRegime($regime);
+        $menu->setTheme($theme);
         $this->manager->persist($menu);
-        // Actually executes the queries (i.e. the INSERT query)
         $this->manager->flush();
-        return $this->json(
-            ['message' => "Menu resource created with {$menu->getId()} id"],
-            Response::HTTP_CREATED,
+
+        $responseData = $this->serializer->serialize($menu, 'json', [
+            'circular_reference_handler' => function ($object) {
+                return method_exists($object, 'getId') ? $object->getId() : null;
+            },
+        ]);
+        $location = $this->urlGenerator->generate(
+            'app_api_menu_show',
+            ['id' => $menu->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
-    
+
+        
+        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     } 
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $menu = $this->repository->findOneBy(['id' => $id]);
+        if ($menu) {
+            $responseData = $this->serializer->serialize($menu, 'json',[
+                'circular_reference_handler' => function ($object) {
+                return method_exists($object, 'getId') ? $object->getId() : null;
+            },
+        ]);
+            
 
-        if (!$menu) {
-            throw $this->createNotFoundException("No Menu found for {$id} id");
+            return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
-        return $this->json(
-            ['message' => "A Menu was found : {$menu->getTitre()} for {$menu->getId()} id"]
-        );
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $menu = $this->repository->findOneBy(['id' => $id]);
+        if ($menu) {
+            
+            $data = json_decode($request->getContent(), true);
+            if (!is_array($data)) {
+                return new JsonResponse(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+            }
+            $menu = $this->serializer->deserialize(
+                $request->getContent(),
+                Menu::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $menu]
+            );
+            
+            if (array_key_exists('regimeId', $data)) {
+                $regime = $data['regimeId'] ? $this->regimeRepository->find($data['regimeId']) : null;
+                if (!$regime) {
+                    return new JsonResponse(['error' => 'Regime introuvable'], Response::HTTP_BAD_REQUEST);
+                }
+                $menu->setRegime($regime);
+            }
 
-        if (!$menu) {
-            throw $this->createNotFoundException("No Menu found for {$id} id");
+            if (array_key_exists('themeId', $data)) {
+                $theme = $data['themeId'] ? $this->themeRepository->find($data['themeId']) : null;
+                if (!$theme) {
+                    return new JsonResponse(['error' => 'Theme introuvable'], Response::HTTP_BAD_REQUEST);
+                }
+                $menu->setTheme($theme);
+            }
+
+            $menu->setUpdatedAt(new DateTimeImmutable());
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
 
-        $menu->setTitre('Menu name updated');
-        $menu->setUpdatedAt(new DateTimeImmutable());
-        $this->manager->flush();
-
-        return $this->redirectToRoute('app_api_menu_show', ['id' => $menu->getId()]);
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $menu = $this->repository->findOneBy(['id' => $id]);
-        if (!$menu) {
-            throw $this->createNotFoundException("No menu found for {$id} id");
+        if ($menu) {
+            $this->manager->remove($menu);
+            $this->manager->flush();
+
+            return new JsonResponse( null, Response::HTTP_NO_CONTENT);
         }
-        $this->manager->remove($menu);
-        $this->manager->flush();
-        return $this->json(['message' => "Menu resource deleted"], Response::HTTP_NO_CONTENT);
+        
+        return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 }
+
