@@ -35,6 +35,7 @@ final class AdminController extends AbstractController
         path: '/api/admin/employees',
         summary: "Créer un compte employé",
         description: "L’admin crée un compte employé (email + mot de passe). Un mail est envoyé à l’employé sans communiquer le mot de passe.",
+        tags: ['Admin'],
         security: [['X-AUTH-TOKEN' => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -147,6 +148,7 @@ final class AdminController extends AbstractController
         path: '/api/admin/employees/{id}/disable',
         summary: "Désactiver un compte employé",
         description: "Rend le compte inutilisable (ex: départ de l’entreprise).",
+        tags: ['Admin'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer', example: 10))
@@ -177,6 +179,7 @@ final class AdminController extends AbstractController
     #[OA\Patch(
         path: '/api/admin/employees/{id}/enable',
         summary: "Réactiver un compte employé",
+        tags: ['Admin'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer', example: 10))

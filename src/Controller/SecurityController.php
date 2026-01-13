@@ -34,6 +34,7 @@ final class SecurityController extends AbstractController
     #[OA\Post(
         path: '/api/registration',
         summary: "Inscription d'un nouvel utilisateur",
+        tags: ['Acces Public'],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -89,6 +90,7 @@ final class SecurityController extends AbstractController
     #[OA\Post(
         path: '/api/login',
         summary: "Connecter un utilisateur",
+        tags: ['Acces Public'],
         requestBody: new OA\RequestBody(
             required: true,
             description: "Données de l’utilisateur pour se connecter",
@@ -162,6 +164,7 @@ final class SecurityController extends AbstractController
     #[OA\Get(
         path: '/api/account/me',
         summary: "Récupérer l'utilisateur connecté",
+        tags: ['Utilisateur'],
         security: [
             ['X-AUTH-TOKEN' => []]
         ],
@@ -206,6 +209,7 @@ final class SecurityController extends AbstractController
     #[OA\Put(
         path: '/api/account/me',
         summary: "Mettre à jour l'utilisateur connecté",
+        tags: ['Utilisateur'],
         security: [
             ['X-AUTH-TOKEN' => []]
         ],

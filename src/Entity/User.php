@@ -72,7 +72,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->apiToken = bin2hex(random_bytes( 20));
         $this->roleEntities = new ArrayCollection();
         $this->commandes = new ArrayCollection();
+        $this->avis = new ArrayCollection();
     }
+
+     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Avis::class, orphanRemoval: true)]
+    private Collection $avis;
 
     public function getId(): ?int
     {
@@ -315,4 +319,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
         return $this;
     }
+
+    /** @return Collection<int, Avis> */
+    public function getAvis(): Collection { return $this->avis; }
 }

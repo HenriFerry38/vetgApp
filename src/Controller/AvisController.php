@@ -3,6 +3,7 @@
 namespace App\Controller;
 use App\Repository\AvisRepository;
 use App\Entity\Avis;
+use App\Entity\User;
 use App\Enum\StatutAvis;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -16,6 +17,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 #[Route('/api/avis', name: 'app_api_avis_')]
 class AvisController extends AbstractController
@@ -34,6 +36,7 @@ class AvisController extends AbstractController
         path: '/api/avis',
         summary: "Créer un avis",
         description: "Crée un nouvel avis client et retourne la ressource créée",
+        tags: ['Avis'],
         requestBody: new OA\RequestBody(
             required: true,
             description: "Données de l'avis à créer",
@@ -89,15 +92,24 @@ class AvisController extends AbstractController
             )
         ]
     )]
-    public function new(Request $request): JsonResponse
+    public function new(Request $request, #[CurrentUser] ?User $user): JsonResponse
     {   
+        if (!$user) {
+            return new JsonResponse(['message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
         $avis = $this->serializer->deserialize($request->getContent(), Avis::class, 'json');
         $avis->setCreatedAt(new DateTimeImmutable());
-       
+
+        $avis->setUser($user);
+
         $this->manager->persist($avis);
         $this->manager->flush();
 
-        $responseData = $this->serializer->serialize($avis, 'json');
+        $responseData = $this->serializer->serialize($avis, 'json',[
+            'circular_reference_handler' => fn ($object) =>
+            method_exists($object, 'getId') ? $object->getId() : null,
+        ]);
+
         $location = $this->urlGenerator->generate(
             'app_api_avis_show',
             ['id' => $avis->getId()],
@@ -112,6 +124,7 @@ class AvisController extends AbstractController
         path: '/api/avis/{id}',
         summary: "Consulter un avis par ID",
         description: "Retourne le détail d’un avis à partir de son identifiant.",
+        tags: ['Avis'],
         parameters: [
             new OA\Parameter(
                 name: 'id',
@@ -174,7 +187,10 @@ class AvisController extends AbstractController
     {
         $avis = $this->repository->findOneBy(['id' => $id]);
         if ($avis) {
-            $responseData = $this->serializer->serialize($avis, 'json');
+            $responseData = $this->serializer->serialize($avis, 'json', [
+            'circular_reference_handler' => fn ($object) =>
+            method_exists($object, 'getId') ? $object->getId() : null,
+        ]);
 
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
@@ -188,6 +204,7 @@ class AvisController extends AbstractController
         path: '/api/avis/{id}',
         summary: "Modifier un avis par ID",
         description: "Met à jour un avis existant. Selon les règles métier, un avis est généralement modifiable par son auteur tant qu’il est en attente, ou par un employé/admin.",
+        tags: ['Avis'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -267,6 +284,7 @@ class AvisController extends AbstractController
         path: '/api/avis/{id}',
         summary: "Supprimer un avis par ID",
         description: "Supprime définitivement un avis.\n\nSelon les règles métier, la suppression peut être réservée à un employé ou un administrateur, ou à l’auteur tant que l’avis est en attente.",
+        tags: ['Avis'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -315,6 +333,7 @@ class AvisController extends AbstractController
         path: '/api/avis/{id}/accepter',
         summary: "Accepter un avis",
         description: "Passe le statut de l'avis à 'accepte' (uniquement si l'avis est en_attente).",
+        tags: ['Employé'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -386,6 +405,7 @@ class AvisController extends AbstractController
         path: '/api/avis/{id}/refuser',
         summary: "Refuser un avis",
         description: "Passe le statut de l'avis à 'refuse' (uniquement si l'avis est en_attente).",
+        tags: ['Employé'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(

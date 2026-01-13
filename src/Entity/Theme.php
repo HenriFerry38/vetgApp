@@ -7,7 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\DBAL\Types\Types;
-use Symfony\Component\Serializer\Annotation\Ignore;
+
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: ThemeRepository::class)]
@@ -45,7 +45,6 @@ class Theme
     /**
      * @var Collection<int, Menu>
      */
-    #[Ignore]
     #[ORM\OneToMany(targetEntity: Menu::class, mappedBy: 'theme')]
     private Collection $menus;
 

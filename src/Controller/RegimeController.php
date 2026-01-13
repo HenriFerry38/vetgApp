@@ -28,6 +28,49 @@ class RegimeController extends AbstractController
 
     }
     #[Route( name: 'new', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/regime',
+        summary: "Créer un nouveau régime",
+        description: "Crée un régime et retourne la ressource créée",
+        tags: ['Regime'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['libelle'],
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Végétarien'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: "Régime créé",
+                headers: [
+                    new OA\Header(
+                        header: 'Location',
+                        description: "URL de la ressource créée",
+                        schema: new OA\Schema(type: 'string', format: 'uri')
+                    )
+                ],
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Végétarien'),
+                        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 400,
+                description: "Requête invalide"
+            )
+        ]
+    )]
     public function new(Request $request): JsonResponse
     {   
         $regime = $this->serializer->deserialize($request->getContent(), Regime::class, 'json');
@@ -48,6 +91,42 @@ class RegimeController extends AbstractController
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/regime/{id}',
+        summary: "Afficher un régime par ID",
+        description: "Retourne un régime à partir de son identifiant",
+        tags: ['Regime'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du régime",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Régime trouvé",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Végétarien'),
+                        new OA\Property(
+                            property: 'createdAt',
+                            type: 'string',
+                            format: 'date-time'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Régime non trouvé"
+            )
+        ]
+    )]
     public function show(int $id): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);
@@ -61,6 +140,44 @@ class RegimeController extends AbstractController
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/regime/{id}',
+        summary: "Modifier un régime par ID",
+        description: "Met à jour un régime existant à partir de son identifiant",
+        tags: ['Regime'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du régime",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['libelle'],
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Sans gluten'
+                    )
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Régime modifié avec succès (aucun contenu retourné)"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Régime non trouvé"
+            )
+        ]
+    )]
     public function edit(int $id, Request $request): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);
@@ -82,6 +199,31 @@ class RegimeController extends AbstractController
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/regime/{id}',
+        summary: "Supprimer un régime par ID",
+        description: "Supprime un régime à partir de son identifiant",
+        tags: ['Regime'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du régime",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Régime supprimé avec succès"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Régime non trouvé"
+            )
+        ]
+    )]
     public function delete(int $id): JsonResponse
     {
         $regime = $this->repository->findOneBy(['id' => $id]);

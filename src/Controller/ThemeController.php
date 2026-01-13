@@ -28,6 +28,53 @@ class ThemeController extends AbstractController
 
     }
     #[Route( name: 'new', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/theme',
+        summary: "Créer un nouveau thème",
+        description: "Crée un thème et retourne la ressource créée",
+        tags: ['Theme'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['libelle'],
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Noël'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: "Thème créé",
+                headers: [
+                    new OA\Header(
+                        header: 'Location',
+                        description: "URL de la ressource créée",
+                        schema: new OA\Schema(type: 'string', format: 'uri')
+                    )
+                ],
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Noël'),
+                        new OA\Property(
+                            property: 'createdAt',
+                            type: 'string',
+                            format: 'date-time'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 400,
+                description: "Requête invalide"
+            )
+        ]
+    )]
     public function new(Request $request): JsonResponse
     {   
         $theme = $this->serializer->deserialize($request->getContent(), Theme::class, 'json');
@@ -48,6 +95,42 @@ class ThemeController extends AbstractController
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/theme/{id}',
+        summary: "Afficher un thème par ID",
+        description: "Retourne un thème à partir de son identifiant",
+        tags: ['Theme'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du thème",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Thème trouvé",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'libelle', type: 'string', example: 'Noël'),
+                        new OA\Property(
+                            property: 'createdAt',
+                            type: 'string',
+                            format: 'date-time'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Thème non trouvé"
+            )
+        ]
+    )]
     public function show(int $id): JsonResponse
     {
         $theme = $this->repository->findOneBy(['id' => $id]);
@@ -61,6 +144,49 @@ class ThemeController extends AbstractController
     } 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/theme/{id}',
+        summary: "Modifier un thème par ID",
+        description: "Met à jour un thème existant à partir de son identifiant",
+        tags: ['Theme'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du thème",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['libelle'],
+                properties: [
+                    new OA\Property(
+                        property: 'libelle',
+                        type: 'string',
+                        example: 'Pâques'
+                    )
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Thème modifié avec succès (aucun contenu retourné)"
+            ),
+            new OA\Response(
+                response: 400,
+                description: "Requête invalide"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Thème non trouvé"
+            )
+        ]
+    )]
+
     public function edit(int $id, Request $request): JsonResponse
     {
         $theme = $this->repository->findOneBy(['id' => $id]);
@@ -83,6 +209,31 @@ class ThemeController extends AbstractController
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/theme/{id}',
+        summary: "Supprimer un thème par ID",
+        description: "Supprime un thème à partir de son identifiant",
+        tags: ['Theme'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant du thème",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Thème supprimé avec succès"
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Thème non trouvé"
+            )
+        ]
+    )]
     public function delete(int $id): JsonResponse
     {
         $theme = $this->repository->findOneBy(['id' => $id]);

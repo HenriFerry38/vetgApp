@@ -36,6 +36,7 @@ class CommandeController extends AbstractController
         path: '/api/commande',
         summary: "Créer une commande",
         description: "Crée une commande et retourne la ressource créée. Le header Location pointe vers l’URL de la commande.",
+        tags: ['Commande'],
         security: [['X-AUTH-TOKEN' => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -152,6 +153,7 @@ class CommandeController extends AbstractController
         path: '/api/commande/{id}',
         summary: "Afficher les commandes",
         description: "Retourne la liste des commandes. Par défaut, un utilisateur voit ses commandes. Un employé/admin peut filtrer les commandes.",
+        tags: ['Commande'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -260,6 +262,7 @@ class CommandeController extends AbstractController
         path: '/api/commande/{id}',
         summary: "Mettre à jour une commande par ID",
         description: "Règles métier :\n- ROLE_USER (propriétaire) : peut modifier date_prestation, heure_prestation, nb_personne uniquement si statut = en_attente.\n- ROLE_EMPLOYEE : peut modifier uniquement le statut.\n- ROLE_ADMIN : peut modifier tous les champs (hors id, user, date_commande).",
+        tags: ['Commande'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -424,6 +427,7 @@ class CommandeController extends AbstractController
         path: '/api/commande/{id}',
         summary: "Supprimer une commande par ID",
         description: "Supprime définitivement une commande.\n- ROLE_ADMIN : peut supprimer toute commande.\n- ROLE_EMPLOYEE : peut supprimer selon règles internes.\n- ROLE_USER : peut supprimer uniquement ses propres commandes (souvent uniquement si statut = en_attente).",
+        tags: ['Commande'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(
@@ -472,6 +476,7 @@ class CommandeController extends AbstractController
         path: '/api/commande/{id}/statut',
         summary: "Modifier le statut d'une commande par ID (employé)",
         description: "Permet à un employé (ou admin) de changer le statut d’une commande. Le corps attendu est minimal: { \"statut\": \"...\" }.",
+        tags: ['Employé'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
             new OA\Parameter(

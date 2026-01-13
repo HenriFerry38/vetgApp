@@ -32,6 +32,7 @@ class AllergeneController extends AbstractController
         path: '/api/allergene',
         summary: "Créer un nouvel allergène",
         description: "Crée un allergène et retourne la ressource créée",
+        tags: ['Allergenes'],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -101,6 +102,7 @@ class AllergeneController extends AbstractController
         path: '/api/allergene/{id}',
         summary: "Récupérer un allergène par ID",
         description: "Retourne un allergène si l'ID existe",
+        tags: ['Allergenes'],
         parameters: [
             new OA\Parameter(
                 name: 'id',
@@ -159,6 +161,7 @@ class AllergeneController extends AbstractController
         path: '/api/allergene/{id}',
         summary: "Mettre à jour un allergène par ID",
         description: "Met à jour les informations d’un allergène existant",
+        tags: ['Allergenes'],
         parameters: [
             new OA\Parameter(
                 name: 'id',
@@ -222,6 +225,7 @@ class AllergeneController extends AbstractController
         path: '/api/allergene/{id}',
         summary: "Supprimer un allergène par ID",
         description: "Supprime définitivement un allergène existant",
+        tags: ['Allergenes'],
         parameters: [
             new OA\Parameter(
                 name: 'id',
