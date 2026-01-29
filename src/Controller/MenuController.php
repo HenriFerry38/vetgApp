@@ -228,7 +228,7 @@ class MenuController extends AbstractController
 
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
-    
+
     #[Route('', name: 'index', methods: ['GET'])]
     #[OA\Get(
         path: '/api/menu',
@@ -251,7 +251,7 @@ class MenuController extends AbstractController
                             new OA\Property(property: 'description', type: 'string', example: 'Un menu festif complet avec entrée, plat, dessert.'),
                             new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 20),
 
-                            // Avec circular_reference_handler, ces relations ressortent souvent en ID
+                            
                             new OA\Property(property: 'regime', type: 'integer', nullable: true, example: 1),
                             new OA\Property(property: 'theme', type: 'integer', nullable: true, example: 2),
 
