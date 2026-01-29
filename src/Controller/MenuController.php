@@ -170,7 +170,7 @@ class MenuController extends AbstractController
     } 
     
 
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[Route('/{id}', name: 'show', methods: ['GET'], requirements:['id' => '\d+'])]
     #[OA\Get(
         path: '/api/menu/{id}',
         summary: "Afficher un menu par ID",
@@ -217,6 +217,7 @@ class MenuController extends AbstractController
         $menu = $this->repository->findOneBy(['id' => $id]);
         if ($menu) {
             $responseData = $this->serializer->serialize($menu, 'json',[
+                'groups' => ['menu:read'],
                 'circular_reference_handler' => function ($object) {
                 return method_exists($object, 'getId') ? $object->getId() : null;
             },
@@ -229,9 +230,9 @@ class MenuController extends AbstractController
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
-    #[Route('', name: 'index', methods: ['GET'])]
+    #[Route('/all', name: 'all', methods: ['GET'])]
     #[OA\Get(
-        path: '/api/menu',
+        path: '/api/menu/all',
         summary: "Lister tous les menus",
         description: "Retourne la liste complète des menus",
         tags: ['Menu'],
@@ -262,11 +263,12 @@ class MenuController extends AbstractController
             )
         ]
     )]
-    public function index(): JsonResponse
+    public function all(): JsonResponse
     {
         $menus = $this->repository->findAll();
 
         $responseData = $this->serializer->serialize($menus, 'json', [
+            'groups' => ['menu:read'],
             'circular_reference_handler' => function ($object) {
                 return method_exists($object, 'getId') ? $object->getId() : null;
             },

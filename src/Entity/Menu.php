@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: MenuRepository::class)]
@@ -15,30 +16,39 @@ class Menu
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['menu:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['menu:read'])]
     private ?string $titre = null;
 
     #[ORM\Column]
+    #[Groups(['menu:read'])]
     private ?int $nb_personne_mini = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
+    #[Groups(['menu:read'])]
     private ?string $prix_par_personne = null;
 
     #[ORM\Column(type: Types::TEXT)]
+    #[Groups(['menu:read'])]
     private ?string $description = null;
 
     #[ORM\Column(nullable: true)]
+    #[Groups(['menu:read'])]
     private ?int $quantite_restaurant = null;
 
     #[ORM\ManyToOne(inversedBy: 'menus')]
+    #[Groups(['menu:read'])]
     private ?Regime $regime = null;
 
     #[ORM\ManyToOne(inversedBy: 'menus')]
+    #[Groups(['menu:read'])]
     private ?Theme $theme = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
+    #[Groups(['menu:read'])]
     private ?\DateTimeImmutable $createdAt;
 
     #[ORM\PrePersist]
