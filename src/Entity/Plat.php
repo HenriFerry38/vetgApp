@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\DBAL\Types\Types;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: PlatRepository::class)]
@@ -15,12 +16,19 @@ class Plat
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['menu:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['menu:read'])]
     private ?string $titre = null;
 
+    #[ORM\Column(length: 50)]
+    #[Groups(['menu:read'])]
+    private ?string $categorie = null;
+
     #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['menu:read'])]
     private ?string $photo = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
@@ -80,6 +88,18 @@ class Plat
         return $this;
     }
 
+    public function getCategorie(): ?string
+    {
+        return $this->categorie;
+    }
+
+    public function setCategorie(string $categorie): static
+    {
+        $this->titre = $categorie;
+
+        return $this;
+    }
+    
     public function getPhoto(): ?string
     {
         return $this->photo;

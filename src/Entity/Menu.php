@@ -73,6 +73,7 @@ class Menu
      * @var Collection<int, Plat>
      */
     #[ORM\ManyToMany(targetEntity: Plat::class, inversedBy: 'menus')]
+    #[Groups(['menu:read'])]
     private Collection $plats;
 
     public function __construct()
