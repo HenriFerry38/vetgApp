@@ -228,6 +228,53 @@ class MenuController extends AbstractController
 
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
+    
+    #[Route('', name: 'index', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/menu',
+        summary: "Lister tous les menus",
+        description: "Retourne la liste complète des menus",
+        tags: ['Menu'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Liste des menus",
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(
+                        type: 'object',
+                        properties: [
+                            new OA\Property(property: 'id', type: 'integer', example: 10),
+                            new OA\Property(property: 'titre', type: 'string', example: 'Menu de Noël'),
+                            new OA\Property(property: 'nb_personne_mini', type: 'integer', example: 4),
+                            new OA\Property(property: 'prix_par_personne', type: 'string', example: '12.50'),
+                            new OA\Property(property: 'description', type: 'string', example: 'Un menu festif complet avec entrée, plat, dessert.'),
+                            new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 20),
+
+                            // Avec circular_reference_handler, ces relations ressortent souvent en ID
+                            new OA\Property(property: 'regime', type: 'integer', nullable: true, example: 1),
+                            new OA\Property(property: 'theme', type: 'integer', nullable: true, example: 2),
+
+                            new OA\Property(property: 'createdAt', type: 'string', format: 'date-time'),
+                        ]
+                    )
+                )
+            )
+        ]
+    )]
+    public function index(): JsonResponse
+    {
+        $menus = $this->repository->findAll();
+
+        $responseData = $this->serializer->serialize($menus, 'json', [
+            'circular_reference_handler' => function ($object) {
+                return method_exists($object, 'getId') ? $object->getId() : null;
+            },
+        ]);
+
+        return new JsonResponse($responseData, Response::HTTP_OK, [], true);
+    }
+
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
     #[OA\Put(
@@ -373,5 +420,7 @@ class MenuController extends AbstractController
         
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
+
+
 }
 
