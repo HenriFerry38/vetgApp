@@ -217,7 +217,7 @@ class MenuController extends AbstractController
         $menu = $this->repository->findOneBy(['id' => $id]);
         if ($menu) {
             $responseData = $this->serializer->serialize($menu, 'json',[
-                'groups' => ['menu:read'],
+                'groups' => ['menu:read','menu:detail'],
                 'circular_reference_handler' => function ($object) {
                 return method_exists($object, 'getId') ? $object->getId() : null;
             },

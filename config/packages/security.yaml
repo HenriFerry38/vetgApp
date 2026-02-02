@@ -35,15 +35,16 @@ security:
     access_control:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
-        
+        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
         - { path: ^/api/registration, roles: PUBLIC_ACCESS }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/doc, roles: PUBLIC_ACCESS }
         - { path: ^/api/menu/all, roles: PUBLIC_ACCESS}
+        - { path: ^/api/menu/\d+$, roles: PUBLIC_ACCESS }
 
-        - { path: ^/api/commande/\d+/statut$, roles: ROLE_EMPLOYEE }
-        - { path: ^/api/avis/\d+/accepter$, roles: ROLE_EMPLOYEE }
-        - { path: ^/api/avis/\d+/refuser$, roles: ROLE_EMPLOYEE }
+        - { path: ^/api/commande/\d+/statut$, roles: ROLE_EMPLOYE }
+        - { path: ^/api/avis/\d+/accepter$, roles: ROLE_EMPLOYE }
+        - { path: ^/api/avis/\d+/refuser$, roles: ROLE_EMPLOYE }
         
         - { path: ^/api, roles: ROLE_USER}
 when@test:

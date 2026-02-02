@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 use App\Repository\CommandeRepository;
+use App\Repository\MenuRepository;
 use App\Entity\Commande;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +28,7 @@ class CommandeController extends AbstractController
         private CommandeRepository $repository,
         private SerializerInterface $serializer,
         private UrlGeneratorInterface $urlGenerator,
+        private MenuRepository $menuRepository
         )
     {
 
@@ -43,21 +45,16 @@ class CommandeController extends AbstractController
             description: "Données nécessaires à la création d’une commande",
             content: new OA\JsonContent(
                 required: [
-                    'numero_commande',
+                    'menu_id',
                     'date_prestation',
                     'heure_prestation',
-                    'prix_menu',
                     'nb_personne',
-                    'prix_livraison'
                 ],
                 properties: [
-                    new OA\Property(property: 'numero_commande', type: 'string', example: 'CMD-2026-0001'),
+                    new OA\Property(property: 'menu_id', type: 'int', example: '1'),
                     new OA\Property(property: 'date_prestation', type: 'string', format: 'date',example: '2026-01-20'),
                     new OA\Property(property: 'heure_prestation', type: 'string', format: 'time',example: '12:30:00'),
-                    // DECIMAL en Doctrine = string côté PHP, donc type string côté OpenAPI
-                    new OA\Property(property: 'prix_menu', type: 'string', example: '15.50'),
                     new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
-                    new OA\Property(property: 'prix_livraison', type: 'string',example: '4.90'),
                     new OA\Property(
                         property: 'statut', type: 'string', 
                         description: "Optionnel. Par défaut: en_attente",
@@ -94,7 +91,6 @@ class CommandeController extends AbstractController
                     type: 'object',
                     properties: [
                         new OA\Property(property: 'id', type: 'integer', example: 1),
-                        new OA\Property(property: 'numero_commande', type: 'string', example: 'CMD-2026-0001'),
                         new OA\Property(
                             property: 'date_commande',
                             type: 'string',
@@ -103,9 +99,7 @@ class CommandeController extends AbstractController
                         ),
                         new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-01-20'),
                         new OA\Property(property: 'heure_prestation', type: 'string', format: 'time', example: '12:30:00'),
-                        new OA\Property(property: 'prix_menu', type: 'string', example: '15.50'),
                         new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
-                        new OA\Property(property: 'prix_livraison', type: 'string', example: '4.90'),
                         new OA\Property(property: 'statut', type: 'string', example: 'en_attente'),
                         new OA\Property(property: 'pret_materiel', type: 'boolean', nullable: true, example: false),
                         new OA\Property(property: 'restitution_materiel', type: 'boolean', nullable: true, example: false),
@@ -123,30 +117,81 @@ class CommandeController extends AbstractController
         ]
     )]
     public function new(Request $request, #[CurrentUser] ?User $user): JsonResponse
-    {   
-        $commande = $this->serializer->deserialize($request->getContent(), Commande::class, 'json');
-        
+    {
+        if (!$user) {
+            return new JsonResponse(['message' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data)) {
+            return new JsonResponse(['message' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $menuId = $data['menu_id'] ?? null;
+        $nb = (int) ($data['nb_personne'] ?? 0);
+
+        $dateStr = $data['date_prestation'] ?? null;  // "2026-02-10"
+        $timeStr = $data['heure_prestation'] ?? null; // "12:30"
+
+        if (!$menuId || $nb <= 0 || !$dateStr || !$timeStr) {
+            return new JsonResponse([
+                'message' => 'Champs requis: menu_id, nb_personne, date_prestation, heure_prestation'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $menu = $this->menuRepository->find($menuId);
+        if (!$menu) {
+            return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Dates
+        try {
+            $datePrestation = new \DateTime($dateStr);
+            $heurePrestation = new \DateTime($timeStr);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['message' => 'Format date/heure invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // ✅ prix_commande = prix_par_personne * nb_personne
+        $prixParPersonne = (string) $menu->getPrixParPersonne();
+        $prixCommande = function_exists('bcmul')
+            ? bcmul($prixParPersonne, (string) $nb, 2)
+            : number_format(((float)$prixParPersonne) * $nb, 2, '.', '');
+
+        // ✅ prix_livraison (par défaut 0)
+        $prixLivraison = $data['prix_livraison'] ?? '0.00';
+
+        // ✅ prix_total = prix_commande + prix_livraison
+        $prixTotal = function_exists('bcadd')
+            ? bcadd((string)$prixCommande, (string)$prixLivraison, 2)
+            : number_format(((float)$prixCommande) + ((float)$prixLivraison), 2, '.', '');
+
+        $commande = new Commande();
+        $commande->setNumeroCommande(date('ymdHis') . random_int(10, 99));
         $commande->setUser($user);
+        $commande->setMenu($menu);
+
+        $commande->setNbPersonne($nb);
+        $commande->setDatePrestation($datePrestation);
+        $commande->setHeurePrestation($heurePrestation);
+
+        $commande->setPrixCommande((string)$prixCommande);
+        $commande->setPrixLivraison((string)$prixLivraison);
+        $commande->setPrixTotal((string)$prixTotal);
 
         $this->manager->persist($commande);
         $this->manager->flush();
 
-        $responseData = $this->serializer->serialize($commande, 'json', [
-            AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER => function (object $object) {
-                // On renvoie un identifiant simple pour casser la boucle
-                return method_exists($object, 'getId') ? $object->getId() : null;
-            },
-        ]);
-
-        $location = $this->urlGenerator->generate(
-            'app_api_commande_show',
-            ['id' => $commande->getId()],
-            UrlGeneratorInterface::ABSOLUTE_URL,
+        return new JsonResponse(
+            $this->serializer->serialize($commande, 'json', [
+                AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER => fn($o) => method_exists($o, 'getId') ? $o->getId() : null
+            ]),
+            Response::HTTP_CREATED,
+            [],
+            true
         );
+    }
 
-        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
-    } 
-    
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     #[OA\Get(

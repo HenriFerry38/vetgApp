@@ -49,8 +49,7 @@ class PlatController extends AbstractController
                         nullable: true,
                         example: 'https://exemple.com/images/poulet-roti.jpg'
                     ),
-                    // Si ton entité Plat contient d'autres champs (description, prix, etc.),
-                    // on les ajoutera ici pour coller au modèle réel.
+                    
                 ]
             )
         ),
@@ -146,7 +145,12 @@ class PlatController extends AbstractController
     {
         $plat = $this->repository->findOneBy(['id' => $id]);
         if ($plat) {
-            $responseData = $this->serializer->serialize($plat, 'json');
+            $responseData = $this->serializer->serialize($plat, 'json',[
+                'groups' => ['plat:read'],
+                'circular_reference_handler' => function ($object) {
+                return method_exists($object, 'getId') ? $object->getId() : null;
+            },
+        ]);
 
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }

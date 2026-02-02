@@ -16,39 +16,39 @@ class Menu
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?string $titre = null;
 
     #[ORM\Column]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?int $nb_personne_mini = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?string $prix_par_personne = null;
 
     #[ORM\Column(type: Types::TEXT)]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?string $description = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?int $quantite_restaurant = null;
 
     #[ORM\ManyToOne(inversedBy: 'menus')]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?Regime $regime = null;
 
     #[ORM\ManyToOne(inversedBy: 'menus')]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?Theme $theme = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private ?\DateTimeImmutable $createdAt;
 
     #[ORM\PrePersist]
@@ -73,13 +73,20 @@ class Menu
      * @var Collection<int, Plat>
      */
     #[ORM\ManyToMany(targetEntity: Plat::class, inversedBy: 'menus')]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read', 'menu:detail'])]
     private Collection $plats;
+
+    /**
+     * @var Collection<int, Commande>
+     */
+    #[ORM\OneToMany(targetEntity: Commande::class, mappedBy: 'menu')]
+    private Collection $commandes;
 
     public function __construct()
     {
         $this->plat = new ArrayCollection();
         $this->plats = new ArrayCollection();
+        $this->commandes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -215,6 +222,36 @@ class Menu
     public function removePlat(Plat $plat): static
     {
         $this->plats->removeElement($plat);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Commande>
+     */
+    public function getCommandes(): Collection
+    {
+        return $this->commandes;
+    }
+
+    public function addCommande(Commande $commande): static
+    {
+        if (!$this->commandes->contains($commande)) {
+            $this->commandes->add($commande);
+            $commande->setMenu($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCommande(Commande $commande): static
+    {
+        if ($this->commandes->removeElement($commande)) {
+            // set the owning side to null (unless already changed)
+            if ($commande->getMenu() === $this) {
+                $commande->setMenu(null);
+            }
+        }
 
         return $this;
     }

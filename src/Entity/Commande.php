@@ -37,14 +37,17 @@ class Commande
    #[ORM\Column(type: Types::TIME_MUTABLE)]
     private ?\DateTimeInterface $heure_prestation = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $prix_menu = null;
+    #[ORM\Column(nullable :true, type: Types::DECIMAL, precision: 5, scale: 2)]
+    private ?string $prix_commande = null;
 
     #[ORM\Column]
     private ?int $nb_personne = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
+    #[ORM\Column(nullable: true, type: Types::DECIMAL, precision: 5, scale: 2)]
     private ?string $prix_livraison = null;
+
+    #[ORM\Column(nullable :true, type: Types::DECIMAL, precision: 5, scale: 2)]
+    private ?string $prix_total = null;
 
     #[ORM\Column(enumType: StatutCommande::class)]
     private StatutCommande $statut = StatutCommande::EN_ATTENTE;
@@ -58,6 +61,10 @@ class Commande
     #[ORM\ManyToOne(inversedBy: 'commandes')]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
     private ?User $user = null;
+
+    #[ORM\ManyToOne(inversedBy: 'commandes')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Menu $menu = null;
 
 
     public function getId(): ?int
@@ -113,14 +120,26 @@ class Commande
         return $this;
     }
 
-    public function getPrixMenu(): ?string
+    public function getPrixCommande(): ?string
     {
-        return $this->prix_menu;
+        return $this->prix_commande;
     }
 
-    public function setPrixMenu(string $prix_menu): static
+    public function setPrixCommande(string $prix_commande): static
     {
-        $this->prix_menu = $prix_menu;
+        $this->prix_commande = $prix_commande;
+
+        return $this;
+    }
+
+     public function getPrixTotal(): ?string
+    {
+        return $this->prix_total;
+    }
+
+    public function setPrixTotal(string $prix_total): static
+    {
+        $this->prix_total = $prix_total;
 
         return $this;
     }
@@ -193,6 +212,18 @@ class Commande
     public function setUser(?User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getMenu(): ?Menu
+    {
+        return $this->menu;
+    }
+
+    public function setMenu(?Menu $menu): static
+    {
+        $this->menu = $menu;
+
         return $this;
     }
 }

@@ -7,7 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: AllergeneRepository::class)]
@@ -16,10 +16,13 @@ class Allergene
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['plat:read', 'menu:detail'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['plat:read', 'menu:detail'])]
     private ?string $libelle = null;
+
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $createdAt;
 
