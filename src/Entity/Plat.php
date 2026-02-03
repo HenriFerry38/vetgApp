@@ -64,7 +64,7 @@ class Plat
      * @var Collection<int, Allergene>
      */
     #[ORM\ManyToMany(targetEntity: Allergene::class, inversedBy: 'plats')]
-    #[Groups(['plat:read','menu:detail'])]
+    #[Groups(['menu:read','plat:read','menu:detail'])]
     private Collection $allergenes;
 
     public function __construct()

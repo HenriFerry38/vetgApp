@@ -46,19 +46,21 @@ class CommandeController extends AbstractController
             content: new OA\JsonContent(
                 required: [
                     'menu_id',
+                    'adresse_prestation',
                     'date_prestation',
                     'heure_prestation',
-                    'nb_personne',
+                    'nb_personne'
                 ],
                 properties: [
                     new OA\Property(property: 'menu_id', type: 'int', example: '1'),
+                    new OA\Property(property: 'adresse_prestation', type: 'string', example: '1 rues des Gourmands, Bordeaux 33000'), 
                     new OA\Property(property: 'date_prestation', type: 'string', format: 'date',example: '2026-01-20'),
                     new OA\Property(property: 'heure_prestation', type: 'string', format: 'time',example: '12:30:00'),
                     new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
                     new OA\Property(
                         property: 'statut', type: 'string', 
                         description: "Optionnel. Par défaut: en_attente",
-                        enum: ['en_attente', 'acceptee', 'preparation', 'livraison', 'livree', 'retour_materiel'],
+                        enum: ['en_attente', 'acceptee', 'preparation', 'livraison', 'livree', 'retour_materiel','anulee','terminee'],
                         example: 'en_attente'
                     ),
                     new OA\Property(property: 'pret_materiel', type: 'boolean', nullable: true, example: false
@@ -97,6 +99,7 @@ class CommandeController extends AbstractController
                             format: 'date-time',
                             example: '2026-01-12T11:00:00+01:00'
                         ),
+                        new OA\Property(property: 'adresse_prestation', type: 'string', example: '1 rues des Gourmands, Bordeaux 33000'),
                         new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-01-20'),
                         new OA\Property(property: 'heure_prestation', type: 'string', format: 'time', example: '12:30:00'),
                         new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
@@ -165,11 +168,17 @@ class CommandeController extends AbstractController
         $prixTotal = function_exists('bcadd')
             ? bcadd((string)$prixCommande, (string)$prixLivraison, 2)
             : number_format(((float)$prixCommande) + ((float)$prixLivraison), 2, '.', '');
+        
+        $adresse_prestation = trim((string)($data['adresse_prestation'] ?? ''));
+        if ($adresse_prestation === '') {
+            return new JsonResponse(['message' => 'Champs requis: adresse_prestation'], Response::HTTP_BAD_REQUEST);
+        }
 
         $commande = new Commande();
         $commande->setNumeroCommande(date('ymdHis') . random_int(10, 99));
         $commande->setUser($user);
         $commande->setMenu($menu);
+        $commande->setAdressePrestation((string)$adresse_prestation);
 
         $commande->setNbPersonne($nb);
         $commande->setDatePrestation($datePrestation);
@@ -208,7 +217,7 @@ class CommandeController extends AbstractController
                 description: "Filtrer par statut",
                 schema: new OA\Schema(
                     type: 'string',
-                    enum: ['en_attente', 'accepte', 'preparation', 'livraison', 'livre', 'retour_materiel']
+                    enum: ['en_attente', 'acceptee', 'preparation', 'livraison', 'livree', 'retour_materiel','anulee','terminee']
                 )
             ),
             new OA\Parameter(
@@ -258,10 +267,11 @@ class CommandeController extends AbstractController
                                 properties: [
                                     new OA\Property(property: 'id', type: 'integer', example: 1),
                                     new OA\Property(property: 'numero_commande', type: 'string', example: 'CMD-2026-0001'),
+                                    new OA\Property(property: 'adresse_prestation',type: 'string', example: '1 rue des Gourmands, Bordeaux 33000'),
                                     new OA\Property(property: 'date_commande', type: 'string', format: 'date-time', example: '2026-01-12T11:00:00+01:00'),
                                     new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-01-20'),
                                     new OA\Property(property: 'heure_prestation', type: 'string', format: 'time', example: '12:30:00'),
-                                    new OA\Property(property: 'prix_menu', type: 'string', example: '15.50'),
+                                    new OA\Property(property: 'prix_commande', type: 'string', example: '15.50'),
                                     new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
                                     new OA\Property(property: 'prix_livraison', type: 'string', example: '4.90'),
                                     new OA\Property(property: 'statut', type: 'string', example: 'en_attente'),
@@ -306,7 +316,7 @@ class CommandeController extends AbstractController
     #[OA\Put(
         path: '/api/commande/{id}',
         summary: "Mettre à jour une commande par ID",
-        description: "Règles métier :\n- ROLE_USER (propriétaire) : peut modifier date_prestation, heure_prestation, nb_personne uniquement si statut = en_attente.\n- ROLE_EMPLOYEE : peut modifier uniquement le statut.\n- ROLE_ADMIN : peut modifier tous les champs (hors id, user, date_commande).",
+        description: "Règles métier :\n- ROLE_USER (propriétaire) : peut modifier adresse_prestation, date_prestation, heure_prestation, nb_personne uniquement si statut = en_attente.\n- ROLE_EMPLOYEE : peut modifier uniquement le statut.\n- ROLE_ADMIN : peut modifier tous les champs (hors id, user, date_commande).",
         tags: ['Commande'],
         security: [['X-AUTH-TOKEN' => []]],
         parameters: [
@@ -325,6 +335,7 @@ class CommandeController extends AbstractController
                 type: 'object',
                 properties: [
                     // USER fields
+                    new OA\Property(property: 'adresse_prestation',type: 'string', example: '1 rue des Animaux, Bordeaux 33000'),
                     new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-01-20'),
                     new OA\Property(property: 'heure_prestation', type: 'string', format: 'time', example: '12:30:00'),
                     new OA\Property(property: 'nb_personne', type: 'integer', example: 4),
@@ -334,13 +345,13 @@ class CommandeController extends AbstractController
                         property: 'statut',
                         type: 'string',
                         description: "Modifiable par EMPLOYEE/ADMIN. Un USER ne peut pas changer le statut.",
-                        enum: ['en_attente', 'accepte', 'en_preparation', 'en_cours_de_livraison', 'livre', 'en_attente_retour_materiel'],
-                        example: 'accepte'
+                        enum: ['en_attente', 'acceptee', 'en_preparation', 'en_cours_de_livraison', 'livre', 'retour_materiel','anulee','terminee'],
+                        example: 'acceptee'
                     ),
 
                     // ADMIN extra fields (si tu autorises vraiment tout)
                     new OA\Property(property: 'numero_commande', type: 'string', example: 'CMD-2026-0001'),
-                    new OA\Property(property: 'prix_menu', type: 'string', example: '15.50'),
+                    new OA\Property(property: 'prix_commande', type: 'string', example: '15.50'),
                     new OA\Property(property: 'prix_livraison', type: 'string', example: '4.90'),
                     new OA\Property(property: 'pret_materiel', type: 'boolean', nullable: true, example: true),
                     new OA\Property(property: 'restitution_materiel', type: 'boolean', nullable: true, example: false),
@@ -396,7 +407,7 @@ class CommandeController extends AbstractController
 
             if ($commande->getStatut() !== StatutCommande::EN_ATTENTE) {
                 return new JsonResponse(
-                    ['message' => 'Commande non modifiable après validation'],
+                    ['message' => 'Commande non modifiable après validation, veuillez nous contacter.'],
                     Response::HTTP_FORBIDDEN
                 );
             }
@@ -411,7 +422,7 @@ class CommandeController extends AbstractController
                         'id',
                         'user',
                         'statut',
-                        'prix_menu',
+                        'prix_commande',
                         'prix_livraison',
                         'pret_materiel',
                         'restitution_materiel',
@@ -436,7 +447,7 @@ class CommandeController extends AbstractController
                         'date_prestation',
                         'heure_prestation',
                         'nb_personne',
-                        'prix_menu',
+                        'prix_commande',
                         'prix_livraison',
                         'date_commande',
                     ],
@@ -540,7 +551,7 @@ class CommandeController extends AbstractController
                     new OA\Property(
                         property: 'statut',
                         type: 'string',
-                        enum: ['en_attente', 'acceptee', 'refusee', 'preparation', 'livraison', 'livree', 'retour_materiel', 'terminee'],
+                        enum: ['en_attente', 'acceptee', 'en_preparation', 'en_cours_de_livraison', 'livre', 'retour_materiel','anulee','terminee'],
                         example: 'preparation'
                     ),
                 ]

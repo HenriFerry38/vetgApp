@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Menu;
 use App\Entity\User;
 use App\Enum\StatutCommande;
 use App\Repository\CommandeRepository;
@@ -17,7 +18,7 @@ class Commande
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 50)]
+    #[ORM\Column(length: 50, unique: true)]
     private ?string $numero_commande = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
@@ -30,6 +31,9 @@ class Commande
             $this->date_commande = new \DateTimeImmutable();
         }
     }
+
+    #[ORM\Column(length: 150)]
+    private ?string $adresse_prestation = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $date_prestation = null;
@@ -84,11 +88,23 @@ class Commande
         return $this;
     }
 
+     public function getAdressePrestation(): ?string
+    {
+        return $this->adresse_prestation;
+    }
+
+    public function setAdressePrestation(string $adresse_prestation): static
+    {
+        $this->adresse_prestation = $adresse_prestation;
+
+        return $this;
+    }
+
     public function getDateCommande(): ?\DateTimeImmutable
     {
         return $this->date_commande;
     }
-
+    
     public function setDateCommande(\DateTimeImmutable $date_commande): static
     {
         $this->date_commande = $date_commande;
@@ -113,7 +129,7 @@ class Commande
         return $this->heure_prestation;
     }
 
-    public function setHeurePrestation(?\DateTimeInterface $heure_prestation): static
+    public function setHeurePrestation(\DateTimeInterface $heure_prestation): static
     {
         $this->heure_prestation = $heure_prestation;
 
@@ -142,6 +158,11 @@ class Commande
         $this->prix_total = $prix_total;
 
         return $this;
+    }
+    
+    public function getPrixTotalFloat(): float
+    {
+        return (float) ($this->prix_total ?? 0);
     }
 
     public function getNbPersonne(): ?int
