@@ -48,11 +48,10 @@ class Menu
     private ?Theme $theme = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
-    #[Groups(['menu:read', 'menu:detail'])]
     private ?\DateTimeImmutable $createdAt;
 
     #[ORM\PrePersist]
-    public function setCreatedAtValue():void
+    public function onPrePersist():void
     {
         if (!isset($this->createdAt)){
             $this->createdAt = new \DateTimeImmutable();
@@ -61,8 +60,8 @@ class Menu
     #[ORM\Column(nullable: true,type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\PrePersist]
-    public function setUpdatedAtValue():void
+    #[ORM\PreUpdate]
+    public function onPreUpdate():void
     {
         if (!isset($this->updatedAt)){
             $this->updatedAt = new \DateTimeImmutable();
@@ -84,7 +83,6 @@ class Menu
 
     public function __construct()
     {
-        $this->plat = new ArrayCollection();
         $this->plats = new ArrayCollection();
         $this->commandes = new ArrayCollection();
     }
