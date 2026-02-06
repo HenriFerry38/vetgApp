@@ -16,9 +16,11 @@ class Commande
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['commande:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50, unique: true)]
+    #[Groups(['commande:read'])]
     private ?string $numero_commande = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
@@ -36,22 +38,27 @@ class Commande
     private ?string $adresse_prestation = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
+    #[Groups(['commande:read'])]
     private ?\DateTimeInterface $date_prestation = null;
 
    #[ORM\Column(type: Types::TIME_MUTABLE)]
+   #[Groups(['commande:read'])]
     private ?\DateTimeInterface $heure_prestation = null;
 
     #[ORM\Column(nullable :true, type: Types::DECIMAL, precision: 5, scale: 2)]
     private ?string $prix_commande = null;
 
     #[ORM\Column]
+    #[Groups(['commande:read'])]
     private ?int $nb_personne = null;
 
     #[ORM\Column(nullable: true, type: Types::DECIMAL, precision: 5, scale: 2)]
     private ?string $prix_livraison = null;
 
     #[ORM\Column(nullable :true, type: Types::DECIMAL, precision: 5, scale: 2)]
+    #[Groups(['commande:read'])]
     private ?string $prix_total = null;
+    
 
     #[ORM\Column(enumType: StatutCommande::class)]
     private StatutCommande $statut = StatutCommande::EN_ATTENTE;
@@ -68,6 +75,7 @@ class Commande
 
     #[ORM\ManyToOne(inversedBy: 'commandes')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Groups(['commande:read'])]
     private ?Menu $menu = null;
 
 

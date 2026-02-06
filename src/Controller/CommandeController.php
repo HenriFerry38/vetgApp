@@ -4,6 +4,7 @@ namespace App\Controller;
 use App\Repository\CommandeRepository;
 use App\Repository\MenuRepository;
 use App\Entity\Commande;
+use App\Entity\Menu;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Attributes as OA;
@@ -18,7 +19,8 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use App\Entity\User;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use App\Enum\StatutCommande;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Security\Http\Attribute\Security;
+use Doctrine\DBAL\LockMode;
 
 #[Route('/api/commande', name: 'app_api_commande_')]
 class CommandeController extends AbstractController
@@ -142,67 +144,114 @@ class CommandeController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $menu = $this->menuRepository->find($menuId);
-        if (!$menu) {
-            return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
-        }
+        $this->manager->beginTransaction();
 
-        // Dates
         try {
-            $datePrestation = new \DateTime($dateStr);
-            $heurePrestation = new \DateTime($timeStr);
+
+            // 🔒 LOCK pessimiste sur le menu
+            $menu = $this->manager->find(
+                Menu::class,
+                $menuId,
+                LockMode::PESSIMISTIC_WRITE
+            );
+
+            if (!$menu) {
+                $this->manager->rollback();
+                return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $menu = $this->menuRepository->find($menuId);
+            if (!$menu) {
+                return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+
+            // ✅ STOCK: check + décrément
+            $stock = (int) ($menu->getQuantiteRestaurant() ?? 0);
+
+            if ($stock <= 0) {
+                return new JsonResponse([
+                    'message' => 'Rupture de stock',
+                    'stock_disponible' => $stock
+                ], Response::HTTP_CONFLICT);
+            }
+
+            if ($stock < $nb) {
+                return new JsonResponse([
+                    'message' => 'Stock insuffisant',
+                    'stock_disponible' => $stock,
+                    'quantite_demandee' => $nb
+                ], Response::HTTP_CONFLICT);
+            }
+
+
+            // Dates
+            try {
+                $datePrestation = new \DateTime($dateStr);
+                $heurePrestation = new \DateTime($timeStr);
+            } catch (\Throwable $e) {
+                return new JsonResponse(['message' => 'Format date/heure invalide'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // ✅ prix_commande = prix_par_personne * nb_personne
+            $prixParPersonne = (string) $menu->getPrixParPersonne();
+            $prixCommande = function_exists('bcmul')
+                ? bcmul($prixParPersonne, (string) $nb, 2)
+                : number_format(((float)$prixParPersonne) * $nb, 2, '.', '');
+
+            // ✅ prix_livraison (par défaut 0)
+            $prixLivraison = $data['prix_livraison'] ?? '0.00';
+
+            // ✅ prix_total = prix_commande + prix_livraison
+            $prixTotal = function_exists('bcadd')
+                ? bcadd((string)$prixCommande, (string)$prixLivraison, 2)
+                : number_format(((float)$prixCommande) + ((float)$prixLivraison), 2, '.', '');
+            
+            $adresse_prestation = trim((string)($data['adresse_prestation'] ?? ''));
+            if ($adresse_prestation === '') {
+                return new JsonResponse(['message' => 'Champs requis: adresse_prestation'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $commande = new Commande();
+            $commande->setNumeroCommande(date('ymdHis') . random_int(10, 99));
+            $commande->setUser($user);
+            $commande->setMenu($menu);
+            $commande->setAdressePrestation((string)$adresse_prestation);
+
+            $commande->setNbPersonne($nb);
+            $commande->setDatePrestation($datePrestation);
+            $commande->setHeurePrestation($heurePrestation);
+
+            $commande->setPrixCommande((string)$prixCommande);
+            $commande->setPrixLivraison((string)$prixLivraison);
+            $commande->setPrixTotal((string)$prixTotal);
+
+            $menu->setQuantiteRestaurant($stock - $nb);
+
+            $this->manager->persist($commande);
+            $this->manager->flush();
+            $this->manager->commit();
+
+            return new JsonResponse(
+                $this->serializer->serialize($commande, 'json', [
+                    AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER => fn($o) => method_exists($o, 'getId') ? $o->getId() : null
+                ]),
+                Response::HTTP_CREATED,
+                [],
+                true
+            );
         } catch (\Throwable $e) {
-            return new JsonResponse(['message' => 'Format date/heure invalide'], Response::HTTP_BAD_REQUEST);
+             $this->manager->rollback();
+
+            return new JsonResponse([
+                'message' => 'Erreur serveur',
+                'detail' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        // ✅ prix_commande = prix_par_personne * nb_personne
-        $prixParPersonne = (string) $menu->getPrixParPersonne();
-        $prixCommande = function_exists('bcmul')
-            ? bcmul($prixParPersonne, (string) $nb, 2)
-            : number_format(((float)$prixParPersonne) * $nb, 2, '.', '');
-
-        // ✅ prix_livraison (par défaut 0)
-        $prixLivraison = $data['prix_livraison'] ?? '0.00';
-
-        // ✅ prix_total = prix_commande + prix_livraison
-        $prixTotal = function_exists('bcadd')
-            ? bcadd((string)$prixCommande, (string)$prixLivraison, 2)
-            : number_format(((float)$prixCommande) + ((float)$prixLivraison), 2, '.', '');
-        
-        $adresse_prestation = trim((string)($data['adresse_prestation'] ?? ''));
-        if ($adresse_prestation === '') {
-            return new JsonResponse(['message' => 'Champs requis: adresse_prestation'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $commande = new Commande();
-        $commande->setNumeroCommande(date('ymdHis') . random_int(10, 99));
-        $commande->setUser($user);
-        $commande->setMenu($menu);
-        $commande->setAdressePrestation((string)$adresse_prestation);
-
-        $commande->setNbPersonne($nb);
-        $commande->setDatePrestation($datePrestation);
-        $commande->setHeurePrestation($heurePrestation);
-
-        $commande->setPrixCommande((string)$prixCommande);
-        $commande->setPrixLivraison((string)$prixLivraison);
-        $commande->setPrixTotal((string)$prixTotal);
-
-        $this->manager->persist($commande);
-        $this->manager->flush();
-
-        return new JsonResponse(
-            $this->serializer->serialize($commande, 'json', [
-                AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER => fn($o) => method_exists($o, 'getId') ? $o->getId() : null
-            ]),
-            Response::HTTP_CREATED,
-            [],
-            true
-        );
     }
 
 
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]
     #[OA\Get(
         path: '/api/commande/{id}',
         summary: "Afficher les commandes",
@@ -312,7 +361,7 @@ class CommandeController extends AbstractController
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     } 
 
-    #[Route('/{id}', name: 'edit', methods: ['PUT'])]
+    #[Route('/{id}', name: 'edit', methods: ['PUT'], requirements: ['id' => '\d+'])]
     #[OA\Put(
         path: '/api/commande/{id}',
         summary: "Mettre à jour une commande par ID",
@@ -478,7 +527,7 @@ class CommandeController extends AbstractController
     }
 
     
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'],requirements: ['id' => '\d+'])]
     #[OA\Delete(
         path: '/api/commande/{id}',
         summary: "Supprimer une commande par ID",
@@ -527,7 +576,7 @@ class CommandeController extends AbstractController
     }
 
     #[Route('/{id}/statut', name: 'patch_statut', methods: ['PATCH'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_EMPLOYEE','ROLE_ADMIN')]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
     #[OA\Patch(
         path: '/api/commande/{id}/statut',
         summary: "Modifier le statut d'une commande par ID (employé)",
@@ -551,8 +600,8 @@ class CommandeController extends AbstractController
                     new OA\Property(
                         property: 'statut',
                         type: 'string',
-                        enum: ['en_attente', 'acceptee', 'en_preparation', 'en_cours_de_livraison', 'livre', 'retour_materiel','anulee','terminee'],
-                        example: 'preparation'
+                        enum: ['en_attente', 'acceptee', 'preparation', 'livraison', 'livre', 'retour_materiel','anulee','terminee'],
+                        example: 'acceptee'
                     ),
                 ]
             )
@@ -629,5 +678,38 @@ class CommandeController extends AbstractController
         $this->manager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/historique', name: 'account_historique', methods: ['GET'])]
+    public function myCommandes(#[CurrentUser] ?User $user): JsonResponse
+    {
+        if (!$user) {
+            return new JsonResponse(['message' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $commandes = $this->repository->findBy(
+            ['user' => $user],
+            ['date_prestation' => 'DESC']
+        );
+
+        $out = array_map(static function (Commande $c) {
+            $menu = $c->getMenu();
+
+            return [
+                'id' => $c->getId(),
+                'numero_commande' => $c->getNumeroCommande(), // <- via getter
+                'date_prestation' => $c->getDatePrestation()?->format('d/m/Y'),
+                'heure_prestation' => $c->getHeurePrestation()?->format('H:i'),
+                'nb_personne' => $c->getNbPersonne(),
+                'prix_total' => $c->getPrixTotal(),
+                'statut' => $c->getStatut()?->value ?? null, // si enum backed
+                'menu' => $menu ? [
+                    'id' => $menu->getId(),
+                    'titre' => $menu->getTitre(),
+                ] : null,
+            ];
+        }, $commandes);
+
+        return new JsonResponse($out, Response::HTTP_OK);
     }
 }

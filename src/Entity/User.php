@@ -8,6 +8,7 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
@@ -19,6 +20,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 180)]
+    #[Groups(['user:read'])]
     private ?string $email = null;
     /**
      * @var string The hashed password
@@ -36,24 +38,31 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $apiToken = null;
 
     #[ORM\Column(length: 64)]
+    #[Groups(['user:read'])]
     private ?string $prenom = null;
 
     #[ORM\Column(length: 10)]
+    #[Groups(['user:read'])]
     private ?string $telephone = null;
 
     #[ORM\Column(length: 150)]
+    #[Groups(['user:read'])]
     private ?string $ville = null;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['user:read'])]
     private ?string $pays = null;
 
     #[ORM\Column(length: 64)]
+    #[Groups(['user:read'])]
     private ?string $nom = null;
 
     #[ORM\Column(length: 150)]
+    #[Groups(['user:read'])]
     private ?string $adresse = null;
 
     #[ORM\Column]
+    #[Groups(['user:read'])]
     private ?int $codePostal = null;
 
     #[ORM\ManyToMany(targetEntity: Role::class)]

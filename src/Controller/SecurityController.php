@@ -200,11 +200,20 @@ final class SecurityController extends AbstractController
         if (!$user) {
            return new JsonResponse(['message' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
-        $responseData = $this->serializer->serialize($user, 'json');
 
-         return new JsonResponse($responseData, Response::HTTP_OK,[], true);
-        
+        return $this->json([
+            'id' => $user->getId(),
+            'email' => $user->getEmail(),
+            'nom' => $user->getNom(),
+            'prenom' => $user->getPrenom(),
+            'telephone' => $user->getTelephone(),
+            'adresse' => $user->getAdresse(),
+            'ville' => $user->getVille(),
+            'codePostal' => $user->getCodePostal(),
+            'pays' => $user->getPays(),
+        ]);   
     }
+    
     #[Route('/account/me', name:'edit', methods:['PUT'])]
     #[OA\Put(
         path: '/api/account/me',
