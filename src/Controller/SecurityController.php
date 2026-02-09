@@ -292,4 +292,59 @@ final class SecurityController extends AbstractController
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
+
+    #[Route('/account/me', name: 'delete', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/account/me',
+        summary: "Supprimer l'utilisateur connecté",
+        description: "Supprime définitivement le compte de l'utilisateur actuellement authentifié.",
+        tags: ['Utilisateur'],
+        security: [['X-AUTH-TOKEN' => []]],
+        responses: [
+            new OA\Response(
+                response: 204,
+                description: "Compte supprimé (aucun contenu retourné)"
+            ),
+            new OA\Response(
+                response: 401,
+                description: "Non authentifié",
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Non authentifié')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 409,
+                description: "Conflit: suppression impossible (contraintes de relations en base)",
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: "Suppression impossible: des données liées empêchent la suppression.")
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function deleteMe(#[CurrentUser] ?User $user): JsonResponse
+    {
+        if (!$user) {
+            return new JsonResponse(['message' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $this->manager->remove($user);
+            $this->manager->flush();
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        } catch (\Throwable $e) {
+            // Souvent: contraintes FK (commandes/avis liés) si pas de cascade ou SET NULL
+            return new JsonResponse(
+                ['message' => "Suppression impossible: des données liées empêchent la suppression."],
+                Response::HTTP_CONFLICT
+            );
+        }
+    }
 }
+
