@@ -71,6 +71,12 @@ class MenuController extends AbstractController
                         example: 20
                     ),
                     new OA\Property(
+                        property: 'pret_materiel',
+                        type: 'boolean',
+                        example: true,
+                        description: "Indique si le menu implique un prêt de matériel."
+                    ),
+                    new OA\Property(
                         property: 'regimeId',
                         type: 'integer',
                         description: "Identifiant du régime associé",
@@ -104,7 +110,7 @@ class MenuController extends AbstractController
                         new OA\Property(property: 'prix_par_personne', type: 'string', example: '12.50'),
                         new OA\Property(property: 'description', type: 'string', example: 'Un menu festif complet avec entrée, plat, dessert.'),
                         new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 20),
-
+                        new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
                         // Comme tu utilises circular_reference_handler, regime/theme peuvent ressortir en ID
                         new OA\Property(property: 'regime', type: 'integer', nullable: true, example: 1),
                         new OA\Property(property: 'theme', type: 'integer', nullable: true, example: 2),
@@ -197,7 +203,7 @@ class MenuController extends AbstractController
                         new OA\Property(property: 'prix_par_personne', type: 'string', example: '12.50'),
                         new OA\Property(property: 'description', type: 'string', example: 'Un menu festif complet avec entrée, plat, dessert.'),
                         new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 20),
-
+                        new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
                         // Avec circular_reference_handler, ces relations ressortent souvent en ID
                         new OA\Property(property: 'regime', type: 'integer', nullable: true, example: 1),
                         new OA\Property(property: 'theme', type: 'integer', nullable: true, example: 2),
@@ -251,7 +257,7 @@ class MenuController extends AbstractController
                             new OA\Property(property: 'prix_par_personne', type: 'string', example: '12.50'),
                             new OA\Property(property: 'description', type: 'string', example: 'Un menu festif complet avec entrée, plat, dessert.'),
                             new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 20),
-
+                            new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
                             
                             new OA\Property(property: 'regime', type: 'integer', nullable: true, example: 1),
                             new OA\Property(property: 'theme', type: 'integer', nullable: true, example: 2),
@@ -303,7 +309,7 @@ class MenuController extends AbstractController
                     new OA\Property(property: 'prix_par_personne', type: 'number', format: 'float', example: 14.90),
                     new OA\Property(property: 'description', type: 'string', example: 'Menu festif mis à jour avec options supplémentaires.'),
                     new OA\Property(property: 'quantite_restaurant', type: 'integer', nullable: true, example: 25),
-
+                    new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
                     // Champs spéciaux gérés dans ton controller
                     new OA\Property(
                         property: 'regimeId',

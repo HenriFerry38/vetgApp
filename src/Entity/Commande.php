@@ -8,6 +8,7 @@ use App\Enum\StatutCommande;
 use App\Repository\CommandeRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: CommandeRepository::class)]
@@ -78,6 +79,21 @@ class Commande
     #[Groups(['commande:read'])]
     private ?Menu $menu = null;
 
+    #[ORM\Column(nullable: true, type: 'datetime_immutable')]
+    #[Groups(['commande:read'])]
+    private ?\DateTimeImmutable $annulee_at = null;
+
+    #[ORM\Column(length: 10, nullable: true)]
+    #[Groups(['commande:read'])]
+    private ?string $annulation_mode_contact = null; // 'gsm' | 'mail'
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['commande:read'])]
+    private ?string $annulation_motif = null;
+
+    #[ORM\Column(nullable: true, type: 'datetime_immutable')]
+    #[Groups(['commande:read'])]
+    private ?\DateTimeImmutable $retour_materiel_at = null;
 
     public function getId(): ?int
     {
@@ -253,6 +269,50 @@ class Commande
     {
         $this->menu = $menu;
 
+        return $this;
+    }
+    
+    public function getAnnuleeAt(): ?\DateTimeImmutable
+    {
+        return $this->annulee_at;
+    }
+
+    public function setAnnuleeAt(?\DateTimeImmutable $annulee_at): static
+    {
+        $this->annulee_at = $annulee_at;
+        return $this;
+    }
+
+    public function getAnnulationModeContact(): ?string
+    {
+        return $this->annulation_mode_contact;
+    }
+
+    public function setAnnulationModeContact(?string $annulation_mode_contact): static
+    {
+        $this->annulation_mode_contact = $annulation_mode_contact;
+        return $this;
+    }
+
+    public function getAnnulationMotif(): ?string
+    {
+        return $this->annulation_motif;
+    }
+
+    public function setAnnulationMotif(?string $annulation_motif): static
+    {
+        $this->annulation_motif = $annulation_motif;
+        return $this;
+    }
+
+    public function getRetourMaterielAt(): ?\DateTimeImmutable
+    {
+        return $this->retour_materiel_at;
+    }
+
+    public function setRetourMaterielAt(?\DateTimeImmutable $retour_materiel_at): static
+    {
+        $this->retour_materiel_at = $retour_materiel_at;
         return $this;
     }
 }

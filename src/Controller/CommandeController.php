@@ -21,6 +21,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use App\Enum\StatutCommande;
 use Symfony\Component\Security\Http\Attribute\Security;
 use Doctrine\DBAL\LockMode;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 
 #[Route('/api/commande', name: 'app_api_commande_')]
 class CommandeController extends AbstractController
@@ -30,7 +32,8 @@ class CommandeController extends AbstractController
         private CommandeRepository $repository,
         private SerializerInterface $serializer,
         private UrlGeneratorInterface $urlGenerator,
-        private MenuRepository $menuRepository
+        private MenuRepository $menuRepository,
+        private MailerInterface $mailer
         )
     {
 
@@ -600,7 +603,7 @@ class CommandeController extends AbstractController
                     new OA\Property(
                         property: 'statut',
                         type: 'string',
-                        enum: ['en_attente', 'acceptee', 'preparation', 'livraison', 'livre', 'retour_materiel','anulee','terminee'],
+                        enum: ['en_attente', 'acceptee', 'refusee', 'preparation', 'livraison', 'livree', 'retour_materiel', 'annulee', 'terminee'],
                         example: 'acceptee'
                     ),
                 ]
@@ -652,19 +655,36 @@ class CommandeController extends AbstractController
                 'allowed' => array_map(fn($c) => $c->value, StatutCommande::cases()),
             ], Response::HTTP_BAD_REQUEST);
         }
-        // on n’autorise pas de revenir en arrière
-        
+
+        $pretMateriel = (bool) ($commande->getMenu()?->isPretMateriel());
+
+        if ($newStatut === StatutCommande::TERMINEE && $pretMateriel && !$commande->isRestitutionMateriel()) {
+            return new JsonResponse([
+                'message' => "Impossible de terminer: restitution matériel non confirmée."
+            ], Response::HTTP_CONFLICT);
+        }
+
+
         $current = $commande->getStatut();
+
+        // transitions "par défaut"
         $allowedTransitions = [
             StatutCommande::EN_ATTENTE->value => [StatutCommande::ACCEPTEE, StatutCommande::REFUSEE],
             StatutCommande::ACCEPTEE->value => [StatutCommande::PREPARATION],
             StatutCommande::PREPARATION->value => [StatutCommande::LIVRAISON],
             StatutCommande::LIVRAISON->value => [StatutCommande::LIVREE],
-            StatutCommande::LIVREE->value => [StatutCommande::RETOUR_MATERIEL],
             StatutCommande::RETOUR_MATERIEL->value => [StatutCommande::TERMINEE],
         ];
 
         $allowed = $allowedTransitions[$current->value] ?? [];
+
+        // Cas métier: après LIVREE -> TERMINEE si pas de prêt matériel, sinon RETOUR_MATERIEL
+        if ($current === StatutCommande::LIVREE) {
+            $allowed = $pretMateriel
+                ? [StatutCommande::RETOUR_MATERIEL]
+                : [StatutCommande::TERMINEE];
+        }
+
         if (!in_array($newStatut, $allowed, true)) {
             return new JsonResponse([
                 'message' => 'Transition de statut non autorisée',
@@ -672,9 +692,173 @@ class CommandeController extends AbstractController
                 'allowedNext' => array_map(fn($s) => $s->value, $allowed),
             ], Response::HTTP_CONFLICT);
         }
-        
+
+        // 🔒 IMPORTANT: ne pas permettre "annulee" via PATCH statut si tu forces ton endpoint annulation
+        if ($newStatut === StatutCommande::ANNULEE) {
+            return new JsonResponse([
+                'message' => "Annulation interdite via /statut. Utilisez l'endpoint d'annulation avec mode_contact + motif."
+            ], Response::HTTP_FORBIDDEN);
+        }
 
         $commande->setStatut($newStatut);
+
+        // ✅ Hook: passage à RETOUR_MATERIEL => date + mail
+        if ($newStatut === StatutCommande::RETOUR_MATERIEL) {
+
+            if ($commande->getRetourMaterielAt() === null) {
+                $commande->setRetourMaterielAt(new \DateTimeImmutable());
+            }
+
+            $emailClient = $commande->getUser()?->getEmail();
+            if ($emailClient) {
+                $mail = (new Email())
+                    ->from('contact@viteetgourmand.fr')
+                    ->to($emailClient)
+                    ->subject('Retour de matériel: délai de 10 jours ouvrés')
+                    ->text(
+                        "Bonjour,\n\n"
+                        ."Votre commande ".$commande->getNumeroCommande()." est passée au statut \"En attente du retour de matériel\".\n"
+                        ."Vous disposez de 10 jours ouvrés pour restituer le matériel.\n"
+                        ."Sans restitution dans ce délai, des frais de 600 euros seront appliqués (voir CGV).\n\n"
+                        ."Pour rendre le matériel, merci de prendre contact avec la société.\n\n"
+                        ."Cordialement,\nVite & Gourmand"
+                    );
+
+                $mailer->send($mail);
+            }
+        }
+
+        $this->manager->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+    
+    #[Route('/{id}/annulation', name: 'patch_annulation', methods: ['PATCH'], requirements: ['id' => '\d+'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Patch(
+        path: '/api/commande/{id}/annulation',
+        summary: "Annuler / refuser une commande (avec motif et mode de contact)",
+        description: "Règle métier: un employé/admin ne peut annuler/refuser qu'après contact client. Champs obligatoires: mode_contact (gsm|mail) + motif. Envoie un mail au client (si email présent).",
+        tags: ['Employé'],
+        security: [['X-AUTH-TOKEN' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: "Identifiant de la commande",
+                schema: new OA\Schema(type: 'integer', example: 1)
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['mode_contact', 'motif'],
+                properties: [
+                    new OA\Property(property: 'mode_contact', type: 'string', enum: ['gsm', 'mail'], example: 'mail'),
+                    new OA\Property(property: 'motif', type: 'string', example: 'Client injoignable / rupture stock / report impossible'),
+                    new OA\Property(
+                        property: 'type',
+                        type: 'string',
+                        enum: ['annulee', 'refusee'],
+                        example: 'annulee',
+                        description: "Optionnel. Par défaut: annulee."
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 204, description: "Commande annulée/refusée (aucun contenu)"),
+            new OA\Response(response: 400, description: "Champs manquants ou invalides"),
+            new OA\Response(response: 401, description: "Non authentifié"),
+            new OA\Response(response: 403, description: "Accès refusé"),
+            new OA\Response(response: 404, description: "Commande introuvable"),
+        ]
+    )]
+    public function patchAnnulation(int $id, Request $request): JsonResponse
+    {
+        $commande = $this->repository->find($id);
+        if (!$commande) {
+            return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data)) {
+            return new JsonResponse(['message' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $mode = $data['mode_contact'] ?? null;
+        $motif = trim((string)($data['motif'] ?? ''));
+        $type = $data['type'] ?? 'annulee';
+
+        if (!in_array($mode, ['gsm', 'mail'], true) || $motif === '') {
+            return new JsonResponse(['message' => 'Champs requis: mode_contact (gsm|mail), motif'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Optionnel: interdire l’annulation/refus si déjà terminée
+        if ($commande->getStatut() === StatutCommande::TERMINEE) {
+            return new JsonResponse(['message' => "Impossible: commande déjà terminée."], Response::HTTP_CONFLICT);
+        }
+
+        $newStatut = match ($type) {
+            'refusee' => StatutCommande::REFUSEE,
+            default => StatutCommande::ANNULEE,
+        };
+
+        $current = $commande->getStatut();
+        if (in_array($commande->getStatut(), [StatutCommande::ANNULEE, StatutCommande::REFUSEE], true)) {
+            return new JsonResponse(['message' => 'Commande déjà annulée/refusée.'], Response::HTTP_CONFLICT);
+        }
+
+        $commande->setAnnulationModeContact($mode);
+        $commande->setAnnulationMotif($motif);
+        $commande->setAnnuleeAt(new \DateTimeImmutable());
+        $commande->setStatut($newStatut);
+
+        $menu = $commande->getMenu();
+        if ($menu && $menu->getQuantiteRestaurant() !== null) {
+            $stock = (int) $menu->getQuantiteRestaurant();
+            $nb = (int) ($commande->getNbPersonne() ?? 0);
+
+            $menu->setQuantiteRestaurant($stock + $nb);
+        }
+        // Mail au client (si email existe)
+        $emailClient = $commande->getUser()?->getEmail();
+        if ($emailClient) {
+            $subject = $newStatut === StatutCommande::REFUSEE
+                ? 'Votre commande a été refusée'
+                : 'Votre commande a été annulée';
+            $introContact = match ($mode) {
+                'gsm'  => "Suite à notre échange téléphonique,",
+                'mail' => "Suite à nos échanges par email,",
+                default => "Suite à nos échanges,",
+            };
+            
+            $modeLabel = $mode === 'gsm' ? 'Téléphone' : 'Email';
+
+
+            $mail = (new Email())
+                ->from('contact@viteetgourmand.fr')
+                ->to($emailClient)
+                ->subject($subject)
+                ->text(
+                     "Bonjour,\n\n"
+                    .$introContact." nous vous informons concernant votre commande ".$commande->getNumeroCommande()." :\n\n"
+                    .($newStatut === StatutCommande::REFUSEE ? "Statut : Refusée\n" : "Statut : Annulée\n")
+                    ."Mode de contact : ".$modeLabel."\n"
+                    ."Motif : ".$motif."\n\n"
+                    ."Si vous souhaitez reprogrammer une prestation, répondez à ce mail.\n\n"
+                    ."Cordialement,\nVite & Gourmand"
+                );
+
+            // Si Mailpit est OFF, tu peux éviter de casser l’API:
+            try {
+                $this->mailer->send($mail);
+            } catch (\Throwable $e) {
+                // Option: logger $e->getMessage()
+            }
+        }
+
         $this->manager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

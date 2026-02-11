@@ -39,6 +39,10 @@ class Menu
     #[Groups(['menu:read', 'menu:detail'])]
     private ?int $quantite_restaurant = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    #[Groups(['menu:read', 'menu:detail','commande:read'])]
+    private bool $pret_materiel = false;
+
     #[ORM\ManyToOne(inversedBy: 'menus')]
     #[Groups(['menu:read', 'menu:detail'])]
     private ?Regime $regime = null;
@@ -152,6 +156,16 @@ class Menu
         return $this;
     }
 
+    public function isPretMateriel(): bool
+    {
+        return $this->pret_materiel;
+    }
+
+    public function setPretMateriel(bool $pret_materiel): static
+    {
+        $this->pret_materiel = $pret_materiel;
+        return $this;
+    }
     public function getRegime(): ?Regime
     {
         return $this->regime;
