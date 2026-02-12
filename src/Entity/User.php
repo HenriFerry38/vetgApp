@@ -132,6 +132,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->roleEntities->removeElement($role);
         return $this;
     }
+
     public function getRoles(): array
     {
         $roles = [];

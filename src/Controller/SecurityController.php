@@ -211,6 +211,7 @@ final class SecurityController extends AbstractController
             'ville' => $user->getVille(),
             'codePostal' => $user->getCodePostal(),
             'pays' => $user->getPays(),
+            'roles' => $user->getRoles(),
         ]);   
     }
     

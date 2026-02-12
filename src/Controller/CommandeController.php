@@ -896,4 +896,30 @@ class CommandeController extends AbstractController
 
         return new JsonResponse($out, Response::HTTP_OK);
     }
+    #[Route('', name: 'index', methods: ['GET'])]
+    #[IsGranted('ROLE_EMPLOYEE')]
+    public function index(Request $request): JsonResponse
+    {
+        // Employé/Admin uniquement (ROLE_ADMIN est couvert si tu le donnes aussi)
+        // Filtres
+        $statut = $request->query->get('statut');      // ex: en_attente
+        $q = $request->query->get('q');                // recherche client nom/email/tel
+        $userId = $request->query->getInt('userId', 0);
+        $datePrestation = $request->query->get('datePrestation'); // YYYY-MM-DD
+
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = min(100, max(1, (int) $request->query->get('limit', 20)));
+
+        // Repo custom
+        $result = $this->repository->searchForEmployee(
+            statut: $statut,
+            q: $q,
+            userId: $userId ?: null,
+            datePrestation: $datePrestation,
+            page: $page,
+            limit: $limit
+        );
+
+        return $this->json($result, Response::HTTP_OK);
+    }
 }
