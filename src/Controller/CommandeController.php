@@ -865,6 +865,60 @@ class CommandeController extends AbstractController
     }
 
     #[Route('/historique', name: 'account_historique', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/commande/historique',
+        summary: "Historique des commandes de l'utilisateur connecté",
+        description: "Retourne la liste des commandes appartenant à l'utilisateur authentifié, triées par date de prestation décroissante.",
+        tags: ['Utilisateur'],
+        security: [['X-AUTH-TOKEN' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Liste des commandes de l'utilisateur",
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(
+                        type: 'object',
+                        properties: [
+                            new OA\Property(property: 'id', type: 'integer', example: 12),
+                            new OA\Property(property: 'numero_commande', type: 'integer', example: 100245),
+                            new OA\Property(property: 'date_prestation', type: 'string', example: '13/02/2026', nullable: true),
+                            new OA\Property(property: 'heure_prestation', type: 'string', example: '18:30', nullable: true),
+                            new OA\Property(property: 'nb_personne', type: 'integer', example: 8),
+                            new OA\Property(property: 'prix_total', type: 'number', format: 'float', example: 199.90),
+                            new OA\Property(
+                                property: 'statut',
+                                type: 'string',
+                                nullable: true,
+                                example: 'en_attente',
+                                description: "Statut de la commande (enum backed)"
+                                // Si tu veux, tu peux ajouter enum: [...]
+                            ),
+                            new OA\Property(
+                                property: 'menu',
+                                type: 'object',
+                                nullable: true,
+                                properties: [
+                                    new OA\Property(property: 'id', type: 'integer', example: 3),
+                                    new OA\Property(property: 'titre', type: 'string', example: 'Menu de Noël')
+                                ]
+                            )
+                        ]
+                    )
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: "Non authentifié",
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Non authentifié')
+                    ]
+                )
+            )
+        ]
+    )]
     public function myCommandes(#[CurrentUser] ?User $user): JsonResponse
     {
         if (!$user) {
@@ -896,8 +950,115 @@ class CommandeController extends AbstractController
 
         return new JsonResponse($out, Response::HTTP_OK);
     }
+
     #[Route('', name: 'index', methods: ['GET'])]
-    #[IsGranted('ROLE_EMPLOYEE')]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Get(
+        path: '/api/commande',
+        summary: "Lister les commandes (employé/admin) avec filtres",
+        description: "Retourne une liste paginée de commandes pour l'espace employé. Permet de filtrer par statut, date de prestation, utilisateur et recherche (nom/email/téléphone).",
+        tags: ['Employé'],
+        security: [['X-AUTH-TOKEN' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'statut',
+                in: 'query',
+                required: false,
+                description: "Filtrer par statut (enum)",
+                schema: new OA\Schema(type: 'string', example: 'en_attente')
+                // optionnel: enum: [...]
+            ),
+            new OA\Parameter(
+                name: 'q',
+                in: 'query',
+                required: false,
+                description: "Recherche textuelle (nom/email/téléphone client)",
+                schema: new OA\Schema(type: 'string', example: 'dupont')
+            ),
+            new OA\Parameter(
+                name: 'userId',
+                in: 'query',
+                required: false,
+                description: "Filtrer sur un utilisateur (ID)",
+                schema: new OA\Schema(type: 'integer', example: 42, minimum: 1)
+            ),
+            new OA\Parameter(
+                name: 'datePrestation',
+                in: 'query',
+                required: false,
+                description: "Filtrer sur la date de prestation (YYYY-MM-DD)",
+                schema: new OA\Schema(type: 'string', format: 'date', example: '2026-02-13')
+            ),
+            new OA\Parameter(
+                name: 'page',
+                in: 'query',
+                required: false,
+                description: "Numéro de page (>= 1)",
+                schema: new OA\Schema(type: 'integer', example: 1, minimum: 1)
+            ),
+            new OA\Parameter(
+                name: 'limit',
+                in: 'query',
+                required: false,
+                description: "Nombre d'éléments par page (1 à 100)",
+                schema: new OA\Schema(type: 'integer', example: 20, minimum: 1, maximum: 100)
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Liste paginée des commandes",
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'items',
+                            type: 'array',
+                            items: new OA\Items(
+                                type: 'object',
+                                properties: [
+                                    new OA\Property(property: 'id', type: 'integer', example: 12),
+                                    new OA\Property(property: 'numero_commande', type: 'integer', example: 100245),
+                                    new OA\Property(property: 'date_prestation', type: 'string', example: '2026-02-13', nullable: true),
+                                    new OA\Property(property: 'heure_prestation', type: 'string', example: '18:30', nullable: true),
+                                    new OA\Property(property: 'nb_personne', type: 'integer', example: 8),
+                                    new OA\Property(property: 'prix_total', type: 'number', format: 'float', example: 199.90),
+                                    new OA\Property(property: 'statut', type: 'string', example: 'en_attente', nullable: true),
+                                    new OA\Property(
+                                        property: 'user',
+                                        type: 'object',
+                                        nullable: true,
+                                        properties: [
+                                            new OA\Property(property: 'id', type: 'integer', example: 42),
+                                            new OA\Property(property: 'nom', type: 'string', example: 'Dupont'),
+                                            new OA\Property(property: 'prenom', type: 'string', example: 'Julie'),
+                                            new OA\Property(property: 'email', type: 'string', example: 'julie.dupont@mail.fr'),
+                                            new OA\Property(property: 'telephone', type: 'string', example: '0612345678', nullable: true),
+                                        ]
+                                    ),
+                                    new OA\Property(
+                                        property: 'menu',
+                                        type: 'object',
+                                        nullable: true,
+                                        properties: [
+                                            new OA\Property(property: 'id', type: 'integer', example: 3),
+                                            new OA\Property(property: 'titre', type: 'string', example: 'Menu de Noël')
+                                        ]
+                                    ),
+                                ]
+                            )
+                        ),
+                        new OA\Property(property: 'page', type: 'integer', example: 1),
+                        new OA\Property(property: 'limit', type: 'integer', example: 20),
+                        new OA\Property(property: 'total', type: 'integer', example: 57),
+                        new OA\Property(property: 'pages', type: 'integer', example: 3),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Non authentifié"),
+            new OA\Response(response: 403, description: "Accès refusé (ROLE_EMPLOYEE requis)"),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         // Employé/Admin uniquement (ROLE_ADMIN est couvert si tu le donnes aussi)

@@ -45,7 +45,7 @@ class Plat
     #[ORM\Column(nullable: true,type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
     public function setUpdatedAtValue():void
     {
         if (!isset($this->updatedAt)){

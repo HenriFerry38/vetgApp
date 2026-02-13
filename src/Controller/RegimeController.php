@@ -236,4 +236,42 @@ class RegimeController extends AbstractController
         
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
+    #[Route('', name: 'app_api_regime_list', methods: ['GET'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Get(
+        path: '/api/regime',
+        summary: "Lister tous les régimes",
+        description: "Retourne la liste complète des régimes. Accessible uniquement aux employés et administrateurs.",
+        tags: ['Regime'],
+        security: [['X-AUTH-TOKEN' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Liste des régimes",
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: 'id', type: 'integer', example: 1),
+                            new OA\Property(property: 'libelle', type: 'string', example: 'Végétarien'),
+                            new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2026-02-13T14:41:47.389Z')
+                        ],
+                        type: 'object'
+                    )
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: "Non authentifié"
+            ),
+            new OA\Response(
+                response: 403,
+                description: "Accès refusé"
+            )
+        ]
+    )]
+    public function list(RegimeRepository $repo): JsonResponse
+    {
+        return $this->json($repo->findAll(), Response::HTTP_OK, [], ['groups' => ['regime:read']]);
+    }
 }

@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\Security\Http\Attribute\Security;
 
 #[Route('/api/plat', name: 'app_api_plat_')]
 class PlatController extends AbstractController
@@ -28,74 +29,58 @@ class PlatController extends AbstractController
 
     }
     #[Route( name: 'new', methods: ['POST'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
     #[OA\Post(
         path: '/api/plat',
         summary: "Créer un nouveau plat",
-        description: "Crée un plat et retourne la ressource créée",
         tags: ['Plat'],
+        security: [['X-AUTH-TOKEN' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['titre'],
+                required: ['titre', 'categorie'],
                 properties: [
-                    new OA\Property(
-                        property: 'titre',
-                        type: 'string',
-                        example: 'Poulet rôti'
-                    ),
-                    new OA\Property(
-                        property: 'photo',
-                        type: 'string',
-                        nullable: true,
-                        example: 'https://exemple.com/images/poulet-roti.jpg'
-                    ),
-                    
+                    new OA\Property(property: 'titre', type: 'string', example: 'Poulet rôti'),
+                    new OA\Property(property: 'categorie', type: 'string', example: 'plat'),
+                    new OA\Property(property: 'photo', type: 'string', nullable: true, example: null),
                 ]
             )
-        ),
-        responses: [
-            new OA\Response(
-                response: 201,
-                description: "Plat créé",
-                headers: [
-                    new OA\Header(
-                        header: 'Location',
-                        description: "URL de la ressource créée",
-                        schema: new OA\Schema(type: 'string', format: 'uri')
-                    )
-                ],
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'id', type: 'integer', example: 1),
-                        new OA\Property(property: 'titre', type: 'string', example: 'Poulet rôti'),
-                        new OA\Property(property: 'photo', type: 'string', nullable: true, example: 'https://exemple.com/images/poulet-roti.jpg'),
-                        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time'),
-                    ]
-                )
-            ),
-            new OA\Response(
-                response: 400,
-                description: "Requête invalide"
-            )
-        ]
+        )
     )]
     public function new(Request $request): JsonResponse
-    {   
-        $plat = $this->serializer->deserialize($request->getContent(), Plat::class, 'json');
+    {
+        $data = json_decode($request->getContent() ?: '[]', true);
+        if (!is_array($data)) {
+            return new JsonResponse(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $titre = trim((string)($data['titre'] ?? ''));
+        $categorie = trim((string)($data['categorie'] ?? ''));
+
+        if ($titre === '' || $categorie === '') {
+            return new JsonResponse(['error' => 'Champs requis: titre, categorie'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $plat = new Plat();
+        $plat->setTitre($titre);
+        $plat->setCategorie($categorie);
+
+        if (array_key_exists('photo', $data)) {
+            $plat->setPhoto($data['photo'] ?: null);
+        }
+
         $plat->setCreatedAt(new DateTimeImmutable());
-       
+
         $this->manager->persist($plat);
         $this->manager->flush();
 
-        $responseData = $this->serializer->serialize($plat, 'json');
-        $location = $this->urlGenerator->generate(
-            'app_api_plat_show',
-            ['id' => $plat->getId()],
-            UrlGeneratorInterface::ABSOLUTE_URL,
-        );
+        $json = $this->serializer->serialize($plat, 'json', [
+            'groups' => ['plat:read'],
+            'circular_reference_handler' => fn($object) => method_exists($object, 'getId') ? $object->getId() : null,
+        ]);
 
-        return new JsonResponse( $responseData, Response::HTTP_CREATED, ["Location" => $location], true);
-    } 
+        return new JsonResponse($json, Response::HTTP_CREATED, [], true);
+    }
     
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
@@ -224,6 +209,7 @@ class PlatController extends AbstractController
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
     #[OA\Delete(
         path: '/api/plat/{id}',
         summary: "Supprimer un plat par ID",
@@ -261,4 +247,30 @@ class PlatController extends AbstractController
         
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
+    #[Route('', name: 'index', methods: ['GET'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Get(
+        path: '/api/plat',
+        summary: 'Lister les plats',
+        tags: ['Plat'],
+        security: [['X-AUTH-TOKEN' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Liste des plats',
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(type: 'object')
+                )
+            )
+        ]
+    )]
+    public function index(): JsonResponse
+    {
+        $plats = $this->repository->findBy([], ['id' => 'DESC']);
+
+        $json = $this->serializer->serialize($plats, 'json', ['groups' => ['plat:read']]);
+        return new JsonResponse($json, Response::HTTP_OK, [], true);
+    }
+
 }

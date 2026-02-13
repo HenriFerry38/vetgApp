@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Repository\MenuRepository;
 use App\Repository\RegimeRepository;
 use App\Repository\ThemeRepository;
+use App\Repository\PlatRepository;
 use App\Entity\Menu;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,6 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\Security\Http\Attribute\Security;
 
 #[Route('/api/menu', name: 'app_api_menu_')]
 class MenuController extends AbstractController
@@ -26,7 +28,8 @@ class MenuController extends AbstractController
         private MenuRepository $repository,
         private RegimeRepository $regimeRepository,
         private ThemeRepository $themeRepository,
-         private SerializerInterface $serializer,
+        private PlatRepository $platRepository,
+        private SerializerInterface $serializer,
         private UrlGeneratorInterface $urlGenerator
         )
     {
@@ -285,6 +288,7 @@ class MenuController extends AbstractController
 
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
     #[OA\Put(
         path: '/api/menu/{id}',
         summary: "Modifier un menu par ID",
@@ -391,6 +395,7 @@ class MenuController extends AbstractController
 
     
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
     #[OA\Delete(
         path: '/api/menu/{id}',
         summary: "Supprimer un menu",
@@ -429,6 +434,82 @@ class MenuController extends AbstractController
         return new JsonResponse( null, Response::HTTP_NOT_FOUND);
     }
 
+    #[Route('/{menuId}/plats/{platId}', name: 'add_plat', methods: ['POST'], requirements: ['menuId' => '\d+', 'platId' => '\d+'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Post(
+        path: '/api/menu/{menuId}/plats/{platId}',
+        summary: 'Ajouter un plat à un menu',
+        tags: ['Menu'],
+        security: [['X-AUTH-TOKEN' => []]],
+        parameters: [
+            new OA\Parameter(name: 'menuId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'platId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Menu mis à jour'),
+            new OA\Response(response: 404, description: 'Menu ou plat introuvable'),
+        ]
+    )]
+    public function addPlat(int $menuId, int $platId): JsonResponse
+    {
+        $menu = $this->repository->find($menuId);
+        if (!$menu) {
+            return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
+        }
 
+        $plat = $this->platRepository->find($platId);
+        if (!$plat) {
+            return new JsonResponse(['message' => 'Plat introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        $menu->addPlat($plat);
+        $this->manager->flush();
+
+        $json = $this->serializer->serialize($menu, 'json', [
+            'groups' => ['menu:detail'],
+            'circular_reference_handler' => fn($object) => method_exists($object, 'getId') ? $object->getId() : null,
+        ]);
+
+        return new JsonResponse($json, Response::HTTP_OK, [], true);
+    }
+
+    #[Route('/{menuId}/plats/{platId}', name: 'remove_plat', methods: ['DELETE'], requirements: ['menuId' => '\d+', 'platId' => '\d+'])]
+    #[Security("is_granted('ROLE_EMPLOYEE') or is_granted('ROLE_ADMIN')")]
+    #[OA\Delete(
+        path: '/api/menu/{menuId}/plats/{platId}',
+        summary: 'Retirer un plat d’un menu',
+        tags: ['Menu'],
+        security: [['X-AUTH-TOKEN' => []]],
+        parameters: [
+            new OA\Parameter(name: 'menuId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'platId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Menu mis à jour'),
+            new OA\Response(response: 404, description: 'Menu ou plat introuvable'),
+        ]
+    )]
+    public function removePlat(int $menuId, int $platId): JsonResponse
+    {
+        $menu = $this->repository->find($menuId);
+        if (!$menu) {
+            return new JsonResponse(['message' => 'Menu introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        $plat = $this->platRepository->find($platId);
+        if (!$plat) {
+            return new JsonResponse(['message' => 'Plat introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        $menu->removePlat($plat);
+        $this->manager->flush();
+
+        $json = $this->serializer->serialize($menu, 'json', [
+            'groups' => ['menu:detail'],
+            'circular_reference_handler' => fn($object) => method_exists($object, 'getId') ? $object->getId() : null,
+        ]);
+
+        return new JsonResponse($json, Response::HTTP_OK, [], true);
+    }
 }
 

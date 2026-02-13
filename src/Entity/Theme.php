@@ -16,11 +16,11 @@ class Theme
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read','theme:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
-    #[Groups(['menu:read'])]
+    #[Groups(['menu:read','theme:read'])]
     private ?string $libelle = null;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
